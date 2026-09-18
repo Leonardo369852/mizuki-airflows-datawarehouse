@@ -1,0 +1,760 @@
+{
+  "datasets": [
+    {
+      "name": "obt_voos",
+      "displayName": "OBT Voos",
+      "queryLines": [
+        "SELECT\n",
+        "  *\n",
+        "FROM\n",
+        "  mizukiairflows.gold.obt_voos"
+      ],
+      "columns": [
+        {
+          "displayName": "total_voos",
+          "description": "Total de voos",
+          "expression": "COUNT(*)"
+        },
+        {
+          "displayName": "voos_realizados",
+          "description": "Voos realizados",
+          "expression": "SUM(CASE WHEN `flag_realizado` THEN 1 ELSE 0 END)"
+        },
+        {
+          "displayName": "voos_cancelados",
+          "description": "Voos cancelados",
+          "expression": "SUM(CASE WHEN `flag_cancelado` THEN 1 ELSE 0 END)"
+        },
+        {
+          "displayName": "taxa_pontualidade",
+          "description": "Taxa de pontualidade (OTP) — pct voos com atraso <= 15 min",
+          "expression": "ROUND(100.0 * SUM(CASE WHEN `partida_pontual` THEN 1 ELSE 0 END) / NULLIF(SUM(CASE WHEN `flag_realizado` THEN 1 ELSE 0 END), 0), 1)"
+        },
+        {
+          "displayName": "serie",
+          "description": "Serie para grafico de evolucao: Realizados vs Cancelados",
+          "expression": "CASE WHEN `flag_realizado` THEN 'Realizados' WHEN `flag_cancelado` THEN 'Cancelados' ELSE 'Outros' END"
+        }
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "name": "13e0c9aa",
+      "displayName": "Operações de Voos",
+      "layout": [
+        {
+          "widget": {
+            "name": "header",
+            "multilineTextboxSpec": {
+              "lines": [
+                "# Operações de Voos — ANAC | OBT Gold"
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 12,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi_total_voos",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "obt_voos",
+                  "fields": [
+                    {
+                      "name": "data_partida_prevista",
+                      "expression": "`data_partida_prevista`"
+                    },
+                    {
+                      "name": "measure(total_voos)",
+                      "expression": "MEASURE(`total_voos`)"
+                    }
+                  ],
+                  "disaggregated": false,
+                  "orders": [
+                    {
+                      "direction": "DESC",
+                      "expression": "`data_partida_prevista`"
+                    }
+                  ]
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Total de Voos"
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(total_voos)",
+                  "format": {
+                    "type": "number-plain",
+                    "abbreviation": "compact"
+                  }
+                },
+                "period": {
+                  "fieldName": "data_partida_prevista",
+                  "hideLabels": true
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 1,
+            "width": 3,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi_realizados",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "obt_voos",
+                  "fields": [
+                    {
+                      "name": "data_partida_prevista",
+                      "expression": "`data_partida_prevista`"
+                    },
+                    {
+                      "name": "measure(voos_realizados)",
+                      "expression": "MEASURE(`voos_realizados`)"
+                    }
+                  ],
+                  "disaggregated": false,
+                  "orders": [
+                    {
+                      "direction": "DESC",
+                      "expression": "`data_partida_prevista`"
+                    }
+                  ]
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Voos Realizados"
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(voos_realizados)",
+                  "format": {
+                    "type": "number-plain",
+                    "abbreviation": "compact"
+                  }
+                },
+                "period": {
+                  "fieldName": "data_partida_prevista",
+                  "hideLabels": true
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 1,
+            "width": 3,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi_cancelados",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "obt_voos",
+                  "fields": [
+                    {
+                      "name": "data_partida_prevista",
+                      "expression": "`data_partida_prevista`"
+                    },
+                    {
+                      "name": "measure(voos_cancelados)",
+                      "expression": "MEASURE(`voos_cancelados`)"
+                    }
+                  ],
+                  "disaggregated": false,
+                  "orders": [
+                    {
+                      "direction": "DESC",
+                      "expression": "`data_partida_prevista`"
+                    }
+                  ]
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Voos Cancelados"
+              },
+              "version": 2,
+              "style": {
+                "fontColor": {
+                  "dark": "#FF6B6B",
+                  "light": "#E03131"
+                }
+              },
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(voos_cancelados)",
+                  "format": {
+                    "type": "number-plain",
+                    "abbreviation": "compact"
+                  }
+                },
+                "period": {
+                  "fieldName": "data_partida_prevista",
+                  "hideLabels": true
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 1,
+            "width": 3,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi_otp",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "obt_voos",
+                  "fields": [
+                    {
+                      "name": "data_partida_prevista",
+                      "expression": "`data_partida_prevista`"
+                    },
+                    {
+                      "name": "measure(taxa_pontualidade)",
+                      "expression": "MEASURE(`taxa_pontualidade`)"
+                    }
+                  ],
+                  "disaggregated": false,
+                  "orders": [
+                    {
+                      "direction": "DESC",
+                      "expression": "`data_partida_prevista`"
+                    }
+                  ]
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Taxa de Pontualidade"
+              },
+              "version": 2,
+              "style": {
+                "fontColor": {
+                  "dark": "#51CF66",
+                  "light": "#2F9E44"
+                }
+              },
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(taxa_pontualidade)",
+                  "format": {
+                    "type": "number-plain",
+                    "abbreviation": "none"
+                  },
+                  "formatTemplate": "{{ @formatted }}%"
+                },
+                "period": {
+                  "fieldName": "data_partida_prevista",
+                  "hideLabels": true
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 9,
+            "y": 1,
+            "width": 3,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "linha_evolucao",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "obt_voos",
+                  "fields": [
+                    {
+                      "name": "serie",
+                      "expression": "`serie`"
+                    },
+                    {
+                      "name": "ano_mes",
+                      "expression": "`ano_mes`"
+                    },
+                    {
+                      "name": "measure(total_voos)",
+                      "expression": "MEASURE(`total_voos`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Evolução Mensal de Voos"
+              },
+              "version": 3,
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "ano_mes",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "measure(total_voos)",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "serie",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 3,
+            "width": 12,
+            "height": 4
+          }
+        },
+        {
+          "widget": {
+            "name": "pie_tipo_linha",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "obt_voos",
+                  "fields": [
+                    {
+                      "name": "measure(total_voos)",
+                      "expression": "MEASURE(`total_voos`)"
+                    },
+                    {
+                      "name": "tipo_linha",
+                      "expression": "`tipo_linha`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Voos por Tipo de Linha"
+              },
+              "version": 3,
+              "widgetType": "pie",
+              "encodings": {
+                "angle": {
+                  "fieldName": "measure(total_voos)",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "tipo_linha",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 7,
+            "width": 6,
+            "height": 4
+          }
+        },
+        {
+          "widget": {
+            "name": "bar_top_empresas",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "obt_voos",
+                  "fields": [
+                    {
+                      "name": "measure(total_voos)",
+                      "expression": "MEASURE(`total_voos`)"
+                    },
+                    {
+                      "name": "empresa_nome",
+                      "expression": "`empresa_nome`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Top 10 Empresas Aéreas"
+              },
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "measure(total_voos)",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "y": {
+                  "fieldName": "empresa_nome",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 7,
+            "width": 6,
+            "height": 4
+          }
+        },
+        {
+          "widget": {
+            "name": "bar_situacao",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "obt_voos",
+                  "fields": [
+                    {
+                      "name": "situacao_voo",
+                      "expression": "`situacao_voo`"
+                    },
+                    {
+                      "name": "measure(total_voos)",
+                      "expression": "MEASURE(`total_voos`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Situação dos Voos"
+              },
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "situacao_voo",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "measure(total_voos)",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 11,
+            "width": 6,
+            "height": 4
+          }
+        },
+        {
+          "widget": {
+            "name": "bar_distancia",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "obt_voos",
+                  "fields": [
+                    {
+                      "name": "rota_faixa_distancia",
+                      "expression": "`rota_faixa_distancia`"
+                    },
+                    {
+                      "name": "measure(total_voos)",
+                      "expression": "MEASURE(`total_voos`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Voos por Faixa de Distância"
+              },
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "rota_faixa_distancia",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "measure(total_voos)",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 11,
+            "width": 6,
+            "height": 4
+          }
+        },
+        {
+          "widget": {
+            "name": "mapa_aerodromos",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "obt_voos",
+                  "fields": [
+                    {
+                      "name": "tipo_linha",
+                      "expression": "`tipo_linha`"
+                    },
+                    {
+                      "name": "origem_latitude",
+                      "expression": "`origem_latitude`"
+                    },
+                    {
+                      "name": "origem_longitude",
+                      "expression": "`origem_longitude`"
+                    },
+                    {
+                      "name": "measure(total_voos)",
+                      "expression": "MEASURE(`total_voos`)"
+                    }
+                  ],
+                  "filters": [
+                    {
+                      "expression": "`origem_latitude` IS NOT NULL"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Aeródromos de Origem — Volume de Voos"
+              },
+              "version": 2,
+              "widgetType": "symbol-map",
+              "encodings": {
+                "coordinates": {
+                  "coordinateType": "longitude-latitude",
+                  "latitude": {
+                    "fieldName": "origem_latitude"
+                  },
+                  "longitude": {
+                    "fieldName": "origem_longitude"
+                  }
+                },
+                "color": {
+                  "fieldName": "tipo_linha",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "size": {
+                  "fieldName": "measure(total_voos)",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 15,
+            "width": 12,
+            "height": 5
+          }
+        },
+        {
+          "widget": {
+            "name": "tabela_empresas",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "obt_voos",
+                  "fields": [
+                    {
+                      "name": "empresa_nome",
+                      "expression": "`empresa_nome`"
+                    },
+                    {
+                      "name": "measure(total_voos)",
+                      "expression": "MEASURE(`total_voos`)"
+                    },
+                    {
+                      "name": "measure(voos_realizados)",
+                      "expression": "MEASURE(`voos_realizados`)"
+                    },
+                    {
+                      "name": "measure(voos_cancelados)",
+                      "expression": "MEASURE(`voos_cancelados`)"
+                    },
+                    {
+                      "name": "measure(taxa_pontualidade)",
+                      "expression": "MEASURE(`taxa_pontualidade`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Resumo por Empresa Aérea"
+              },
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "empresa_nome"
+                  },
+                  {
+                    "fieldName": "measure(total_voos)"
+                  },
+                  {
+                    "fieldName": "measure(voos_realizados)"
+                  },
+                  {
+                    "fieldName": "measure(voos_cancelados)"
+                  },
+                  {
+                    "fieldName": "measure(taxa_pontualidade)"
+                  }
+                ]
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 20,
+            "width": 12,
+            "height": 6
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1"
+    }
+  ],
+  "uiSettings": {
+    "theme": {
+      "widgetHeaderAlignment": "ALIGNMENT_UNSPECIFIED"
+    },
+    "applyModeEnabled": false
+  }
+}

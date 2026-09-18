@@ -1,0 +1,1711 @@
+{
+  "datasets": [
+    {
+      "name": "dim_tipo_linha",
+      "displayName": "Tipos de Linha",
+      "config": {
+        "version": "1.1",
+        "source": "mizukiairflows.gold.dim_tipo_linha",
+        "comment": "Dimensão de tipos de linha aérea",
+        "dimensions": [
+          {
+            "name": "sk_tipo_linha",
+            "expr": "sk_tipo_linha"
+          },
+          {
+            "name": "codigo",
+            "expr": "codigo",
+            "displayName": "Código"
+          },
+          {
+            "name": "descricao",
+            "expr": "descricao",
+            "displayName": "Tipo de Linha"
+          }
+        ]
+      }
+    },
+    {
+      "name": "dim_situacao",
+      "displayName": "Situação do Voo",
+      "config": {
+        "version": "1.1",
+        "source": "mizukiairflows.gold.dim_situacao_voo",
+        "comment": "Dimensão de situação do voo",
+        "dimensions": [
+          {
+            "name": "sk_situacao",
+            "expr": "sk_situacao"
+          },
+          {
+            "name": "codigo",
+            "expr": "codigo",
+            "displayName": "Código"
+          },
+          {
+            "name": "descricao",
+            "expr": "descricao",
+            "displayName": "Descrição"
+          }
+        ]
+      }
+    },
+    {
+      "name": "dim_tempo",
+      "displayName": "Dimensão Tempo",
+      "config": {
+        "version": "1.1",
+        "source": "mizukiairflows.gold.dim_tempo",
+        "comment": "Dimensão de tempo",
+        "dimensions": [
+          {
+            "name": "sk_tempo",
+            "expr": "sk_tempo"
+          },
+          {
+            "name": "data",
+            "expr": "data",
+            "displayName": "Data"
+          },
+          {
+            "name": "ano",
+            "expr": "ano",
+            "displayName": "Ano"
+          },
+          {
+            "name": "mes",
+            "expr": "mes",
+            "displayName": "Mês"
+          },
+          {
+            "name": "nome_mes",
+            "expr": "nome_mes",
+            "displayName": "Nome do Mês"
+          },
+          {
+            "name": "dia",
+            "expr": "dia",
+            "displayName": "Dia"
+          },
+          {
+            "name": "nome_dia_semana",
+            "expr": "nome_dia_semana",
+            "displayName": "Dia da Semana"
+          },
+          {
+            "name": "trimestre",
+            "expr": "trimestre",
+            "displayName": "Trimestre"
+          },
+          {
+            "name": "ano_mes",
+            "expr": "ano_mes",
+            "displayName": "Ano-Mês"
+          },
+          {
+            "name": "fim_de_semana",
+            "expr": "fim_de_semana",
+            "displayName": "Fim de Semana"
+          },
+          {
+            "name": "estacao",
+            "expr": "estacao",
+            "displayName": "Estação"
+          }
+        ]
+      }
+    },
+    {
+      "name": "dim_empresa",
+      "displayName": "Empresas Aéreas",
+      "config": {
+        "version": "1.1",
+        "source": "mizukiairflows.gold.dim_empresa",
+        "comment": "Dimensão de empresas aéreas",
+        "dimensions": [
+          {
+            "name": "sk_empresa",
+            "expr": "sk_empresa"
+          },
+          {
+            "name": "icao",
+            "expr": "icao",
+            "displayName": "ICAO"
+          },
+          {
+            "name": "razao_social",
+            "expr": "razao_social",
+            "displayName": "Razão Social"
+          },
+          {
+            "name": "servico",
+            "expr": "servico",
+            "displayName": "Tipo de Serviço"
+          },
+          {
+            "name": "origem_cadastro",
+            "expr": "origem_cadastro",
+            "displayName": "Origem"
+          },
+          {
+            "name": "situacao",
+            "expr": "situacao",
+            "displayName": "Situação"
+          },
+          {
+            "name": "flag_ativa",
+            "expr": "flag_ativa",
+            "displayName": "Empresa Ativa"
+          }
+        ]
+      }
+    },
+    {
+      "name": "fato_voos",
+      "displayName": "Fato Voos",
+      "config": {
+        "source": "mizukiairflows.gold.fato_voos",
+        "measures": [
+          {
+            "name": "total_voos",
+            "expr": "COUNT(1)",
+            "displayName": "Total de Voos"
+          },
+          {
+            "name": "voos_realizados",
+            "expr": "COUNT(1) FILTER (WHERE flag_realizado = true)",
+            "displayName": "Voos Realizados"
+          },
+          {
+            "name": "voos_cancelados",
+            "expr": "COUNT(1) FILTER (WHERE flag_cancelado = true)",
+            "displayName": "Voos Cancelados"
+          },
+          {
+            "name": "taxa_cancelamento",
+            "expr": "COUNT(1) FILTER (WHERE flag_cancelado = true) / COUNT(1)",
+            "displayName": "Taxa de Cancelamento",
+            "format": {
+              "type": "percentage",
+              "decimalPlaces": {
+                "type": "exact",
+                "places": 2.0
+              }
+            }
+          },
+          {
+            "name": "atraso_medio_partida",
+            "expr": "AVG(atraso_partida_min)",
+            "displayName": "Atraso Médio de Partida (min)"
+          },
+          {
+            "name": "otp_partida",
+            "expr": "COUNT(1) FILTER (WHERE partida_pontual = true) / COUNT(1)",
+            "displayName": "Pontualidade de Partida (OTP)",
+            "format": {
+              "type": "percentage",
+              "decimalPlaces": {
+                "type": "exact",
+                "places": 2.0
+              }
+            }
+          },
+          {
+            "name": "atraso_medio_chegada",
+            "expr": "AVG(atraso_chegada_min)",
+            "displayName": "Atraso Médio de Chegada (min)"
+          },
+          {
+            "name": "duracao_media_voo",
+            "expr": "AVG(duracao_voo_min)",
+            "displayName": "Duração Média de Voo (min)"
+          }
+        ],
+        "version": "1.1",
+        "comment": "Métricas de operação de voos da ANAC",
+        "dimensions": [
+          {
+            "name": "data_partida_prevista",
+            "expr": "data_partida_prevista",
+            "displayName": "Data de Partida Prevista"
+          },
+          {
+            "name": "icao_empresa",
+            "expr": "icao_empresa",
+            "displayName": "ICAO Empresa"
+          },
+          {
+            "name": "icao_origem",
+            "expr": "icao_origem",
+            "displayName": "ICAO Origem"
+          },
+          {
+            "name": "icao_destino",
+            "expr": "icao_destino",
+            "displayName": "ICAO Destino"
+          },
+          {
+            "name": "situacao_voo",
+            "expr": "situacao_voo",
+            "displayName": "Situação do Voo"
+          },
+          {
+            "name": "periodo_partida",
+            "expr": "periodo_partida",
+            "displayName": "Período de Partida"
+          },
+          {
+            "name": "sk_empresa",
+            "expr": "sk_empresa"
+          },
+          {
+            "name": "sk_aerodromo_origem",
+            "expr": "sk_aerodromo_origem"
+          },
+          {
+            "name": "sk_aerodromo_destino",
+            "expr": "sk_aerodromo_destino"
+          },
+          {
+            "name": "sk_tipo_linha",
+            "expr": "sk_tipo_linha"
+          },
+          {
+            "name": "sk_situacao",
+            "expr": "sk_situacao"
+          },
+          {
+            "name": "sk_tempo_partida_prevista",
+            "expr": "sk_tempo_partida_prevista"
+          }
+        ]
+      }
+    },
+    {
+      "name": "dim_aerodromo",
+      "displayName": "Aeródromos",
+      "config": {
+        "version": "1.1",
+        "source": "mizukiairflows.gold.dim_aerodromo",
+        "comment": "Dimensão de aeródromos",
+        "dimensions": [
+          {
+            "name": "sk_aerodromo",
+            "expr": "sk_aerodromo"
+          },
+          {
+            "name": "icao",
+            "expr": "icao",
+            "displayName": "ICAO"
+          },
+          {
+            "name": "nome",
+            "expr": "nome",
+            "displayName": "Nome do Aeródromo"
+          },
+          {
+            "name": "municipio",
+            "expr": "municipio",
+            "displayName": "Município"
+          },
+          {
+            "name": "uf_nome",
+            "expr": "uf_nome",
+            "displayName": "UF"
+          },
+          {
+            "name": "latitude",
+            "expr": "latitude",
+            "displayName": "Latitude"
+          },
+          {
+            "name": "longitude",
+            "expr": "longitude",
+            "displayName": "Longitude"
+          }
+        ]
+      }
+    },
+    {
+      "name": "dim_rota",
+      "displayName": "Rotas",
+      "config": {
+        "source": "mizukiairflows.gold.dim_rota",
+        "measures": [
+          {
+            "name": "total_rotas",
+            "expr": "COUNT(1)",
+            "displayName": "Total de Rotas"
+          },
+          {
+            "name": "distancia_media",
+            "expr": "AVG(distancia_km)",
+            "displayName": "Distância Média (km)"
+          },
+          {
+            "name": "distancia_maxima",
+            "expr": "MAX(distancia_km)",
+            "displayName": "Distância Máxima (km)"
+          },
+          {
+            "name": "distancia_minima",
+            "expr": "MIN(distancia_km)",
+            "displayName": "Distância Mínima (km)"
+          }
+        ],
+        "version": "1.1",
+        "comment": "Dimensão de rotas com distância haversine",
+        "dimensions": [
+          {
+            "name": "sk_rota",
+            "expr": "sk_rota"
+          },
+          {
+            "name": "icao_origem",
+            "expr": "icao_origem",
+            "displayName": "ICAO Origem"
+          },
+          {
+            "name": "icao_destino",
+            "expr": "icao_destino",
+            "displayName": "ICAO Destino"
+          },
+          {
+            "name": "route_name",
+            "expr": "CONCAT(icao_origem, ' > ', icao_destino)",
+            "displayName": "Rota"
+          },
+          {
+            "name": "distancia_km",
+            "expr": "distancia_km",
+            "displayName": "Distância (km)"
+          },
+          {
+            "name": "faixa_distancia",
+            "expr": "CASE\n  WHEN distancia_km IS NULL THEN 'Sem coordenadas'\n  WHEN distancia_km < 500 THEN 'Curta (<500km)'\n  WHEN distancia_km < 1500 THEN 'Média (500-1500km)'\n  WHEN distancia_km < 3000 THEN 'Longa (1500-3000km)'\n  ELSE 'Extra-longa (>3000km)'\nEND",
+            "displayName": "Faixa de Distância"
+          },
+          {
+            "name": "lat_origem",
+            "expr": "lat_origem",
+            "displayName": "Latitude Origem"
+          },
+          {
+            "name": "lon_origem",
+            "expr": "lon_origem",
+            "displayName": "Longitude Origem"
+          },
+          {
+            "name": "lat_destino",
+            "expr": "lat_destino",
+            "displayName": "Latitude Destino"
+          },
+          {
+            "name": "lon_destino",
+            "expr": "lon_destino",
+            "displayName": "Longitude Destino"
+          },
+          {
+            "name": "status_distancia",
+            "expr": "status_distancia",
+            "displayName": "Status Distância"
+          }
+        ]
+      }
+    }
+  ],
+  "relationshipGraphs": [
+    {
+      "sources": [
+        {
+          "name": "Tipos_de_Linha",
+          "datasetName": "dim_tipo_linha"
+        },
+        {
+          "name": "Situao_do_Voo",
+          "datasetName": "dim_situacao"
+        },
+        {
+          "name": "Dimenso_Tempo",
+          "datasetName": "dim_tempo"
+        },
+        {
+          "name": "Empresas_Areas",
+          "datasetName": "dim_empresa"
+        },
+        {
+          "name": "Fato_Voos",
+          "datasetName": "fato_voos"
+        },
+        {
+          "name": "Aerdromos",
+          "datasetName": "dim_aerodromo"
+        },
+        {
+          "name": "Rotas",
+          "datasetName": "dim_rota"
+        }
+      ],
+      "relationships": [
+        {
+          "name": "relationship_0",
+          "from": "Fato_Voos",
+          "to": "Empresas_Areas",
+          "on": "`Fato_Voos`.`sk_empresa` = `Empresas_Areas`.`sk_empresa`",
+          "cardinality": "CARDINALITY_MANY_TO_ONE"
+        },
+        {
+          "name": "relationship_1",
+          "from": "Fato_Voos",
+          "to": "Aerdromos",
+          "on": "`Fato_Voos`.`sk_aerodromo_origem` = `Aerdromos`.`sk_aerodromo`",
+          "cardinality": "CARDINALITY_MANY_TO_ONE"
+        },
+        {
+          "name": "relationship_2",
+          "from": "Fato_Voos",
+          "to": "Tipos_de_Linha",
+          "on": "`Fato_Voos`.`sk_tipo_linha` = `Tipos_de_Linha`.`sk_tipo_linha`",
+          "cardinality": "CARDINALITY_MANY_TO_ONE"
+        },
+        {
+          "name": "relationship_3",
+          "from": "Fato_Voos",
+          "to": "Situao_do_Voo",
+          "on": "`Fato_Voos`.`sk_situacao` = `Situao_do_Voo`.`sk_situacao`",
+          "cardinality": "CARDINALITY_MANY_TO_ONE"
+        },
+        {
+          "name": "relationship_4",
+          "from": "Fato_Voos",
+          "to": "Dimenso_Tempo",
+          "on": "`Fato_Voos`.`sk_tempo_partida_prevista` = `Dimenso_Tempo`.`sk_tempo`",
+          "cardinality": "CARDINALITY_MANY_TO_ONE"
+        },
+        {
+          "name": "relationship_5",
+          "from": "Fato_Voos",
+          "to": "Rotas",
+          "on": "`Fato_Voos`.`sk_rota` = `Rotas`.`sk_rota`",
+          "cardinality": "CARDINALITY_MANY_TO_ONE"
+        }
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "name": "831f75e8",
+      "displayName": "Operações de Voos",
+      "layout": [
+        {
+          "widget": {
+            "name": "title_header",
+            "multilineTextboxSpec": {
+              "lines": [
+                "## Dashboard de Operações de Voos — ANAC\n",
+                "### Performance Operacional da Aviação Brasileira"
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 12,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi_total_voos",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "fields": [
+                    {
+                      "name": "measure(Fato_Voos__total_voos)",
+                      "expression": "MEASURE(`Fato_Voos`.`total_voos`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Total de Voos"
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(Fato_Voos__total_voos)",
+                  "format": {
+                    "type": "number-plain",
+                    "abbreviation": "compact"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 2,
+            "width": 3,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi_voos_realizados",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "fields": [
+                    {
+                      "name": "measure(Fato_Voos__voos_realizados)",
+                      "expression": "MEASURE(`Fato_Voos`.`voos_realizados`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Voos Realizados"
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(Fato_Voos__voos_realizados)",
+                  "format": {
+                    "type": "number-plain",
+                    "abbreviation": "compact"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 2,
+            "width": 3,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi_taxa_cancelamento",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "fields": [
+                    {
+                      "name": "measure(Fato_Voos__taxa_cancelamento)",
+                      "expression": "MEASURE(`Fato_Voos`.`taxa_cancelamento`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Taxa de Cancelamento"
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(Fato_Voos__taxa_cancelamento)",
+                  "format": {
+                    "type": "number-percent",
+                    "decimalPlaces": {
+                      "type": "exact",
+                      "places": 2
+                    }
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 2,
+            "width": 3,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi_otp_partida",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "fields": [
+                    {
+                      "name": "measure(Fato_Voos__otp_partida)",
+                      "expression": "MEASURE(`Fato_Voos`.`otp_partida`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Pontualidade de Partida (OTP)"
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(Fato_Voos__otp_partida)",
+                  "format": {
+                    "type": "number-percent",
+                    "decimalPlaces": {
+                      "type": "exact",
+                      "places": 2
+                    }
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 9,
+            "y": 2,
+            "width": 3,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "line_evolucao_mensal",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "fields": [
+                    {
+                      "name": "Fato_Voos__situacao_voo",
+                      "expression": "`Fato_Voos`.`situacao_voo`"
+                    },
+                    {
+                      "name": "monthly(Fato_Voos__data_partida_prevista)",
+                      "expression": "DATE_TRUNC(\"MONTH\", `Fato_Voos`.`data_partida_prevista`)"
+                    },
+                    {
+                      "name": "measure(Fato_Voos__total_voos)",
+                      "expression": "MEASURE(`Fato_Voos`.`total_voos`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Evolução Mensal de Voos"
+              },
+              "version": 3,
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "monthly(Fato_Voos__data_partida_prevista)",
+                  "scale": {
+                    "type": "temporal"
+                  }
+                },
+                "y": {
+                  "fieldName": "measure(Fato_Voos__total_voos)",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "Fato_Voos__situacao_voo",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 4,
+            "width": 8,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "pie_tipo_linha",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "fields": [
+                    {
+                      "name": "measure(Fato_Voos__total_voos)",
+                      "expression": "MEASURE(`Fato_Voos`.`total_voos`)"
+                    },
+                    {
+                      "name": "Tipos_de_Linha__descricao",
+                      "expression": "`Tipos_de_Linha`.`descricao`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Distribuição por Tipo de Linha"
+              },
+              "version": 3,
+              "widgetType": "pie",
+              "encodings": {
+                "angle": {
+                  "fieldName": "measure(Fato_Voos__total_voos)",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "Tipos_de_Linha__descricao",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 8,
+            "y": 4,
+            "width": 4,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "bar_empresas",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "fields": [
+                    {
+                      "name": "Empresas_Areas__icao",
+                      "expression": "`Empresas_Areas`.`icao`"
+                    },
+                    {
+                      "name": "measure(Fato_Voos__total_voos)",
+                      "expression": "MEASURE(`Fato_Voos`.`total_voos`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Volume por Empresa Aérea"
+              },
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "Empresas_Areas__icao",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "measure(Fato_Voos__total_voos)",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 10,
+            "width": 8,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "bar_situacao",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "fields": [
+                    {
+                      "name": "Situao_do_Voo__descricao",
+                      "expression": "`Situao_do_Voo`.`descricao`"
+                    },
+                    {
+                      "name": "measure(Fato_Voos__total_voos)",
+                      "expression": "MEASURE(`Fato_Voos`.`total_voos`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Voos por Situação"
+              },
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "Situao_do_Voo__descricao",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "measure(Fato_Voos__total_voos)",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 8,
+            "y": 10,
+            "width": 4,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "map_aerodromos",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "fields": [
+                    {
+                      "name": "measure(Fato_Voos__total_voos)",
+                      "expression": "MEASURE(`Fato_Voos`.`total_voos`)"
+                    },
+                    {
+                      "name": "Aerdromos__latitude",
+                      "expression": "`Aerdromos`.`latitude`"
+                    },
+                    {
+                      "name": "Aerdromos__longitude",
+                      "expression": "`Aerdromos`.`longitude`"
+                    },
+                    {
+                      "name": "Aerdromos__nome",
+                      "expression": "`Aerdromos`.`nome`"
+                    },
+                    {
+                      "name": "Aerdromos__uf_nome",
+                      "expression": "`Aerdromos`.`uf_nome`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Volume de Voos por Aeródromo de Origem"
+              },
+              "version": 2,
+              "widgetType": "symbol-map",
+              "encodings": {
+                "coordinates": {
+                  "coordinateType": "longitude-latitude",
+                  "latitude": {
+                    "fieldName": "Aerdromos__latitude"
+                  },
+                  "longitude": {
+                    "fieldName": "Aerdromos__longitude"
+                  }
+                },
+                "color": {
+                  "fieldName": "measure(Fato_Voos__total_voos)",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "size": {
+                  "fieldName": "measure(Fato_Voos__total_voos)",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "extra": [
+                  {
+                    "fieldName": "Aerdromos__nome"
+                  },
+                  {
+                    "fieldName": "Aerdromos__uf_nome"
+                  }
+                ]
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 16,
+            "width": 12,
+            "height": 8
+          }
+        },
+        {
+          "widget": {
+            "name": "table_detalhe_empresa",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "fields": [
+                    {
+                      "name": "Empresas_Areas__razao_social",
+                      "expression": "`Empresas_Areas`.`razao_social`"
+                    },
+                    {
+                      "name": "measure(Fato_Voos__total_voos)",
+                      "expression": "MEASURE(`Fato_Voos`.`total_voos`)"
+                    },
+                    {
+                      "name": "measure(Fato_Voos__voos_realizados)",
+                      "expression": "MEASURE(`Fato_Voos`.`voos_realizados`)"
+                    },
+                    {
+                      "name": "measure(Fato_Voos__voos_cancelados)",
+                      "expression": "MEASURE(`Fato_Voos`.`voos_cancelados`)"
+                    },
+                    {
+                      "name": "measure(Fato_Voos__taxa_cancelamento)",
+                      "expression": "MEASURE(`Fato_Voos`.`taxa_cancelamento`)"
+                    },
+                    {
+                      "name": "measure(Fato_Voos__otp_partida)",
+                      "expression": "MEASURE(`Fato_Voos`.`otp_partida`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Detalhe por Empresa Aérea"
+              },
+              "version": 2,
+              "bandedRows": {
+                "enabled": true
+              },
+              "displayRowNumbers": true,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "Empresas_Areas__razao_social",
+                    "displayName": "Empresa Aérea"
+                  },
+                  {
+                    "fieldName": "measure(Fato_Voos__total_voos)",
+                    "format": {
+                      "type": "number-plain",
+                      "abbreviation": "compact"
+                    },
+                    "displayName": "Total Voos"
+                  },
+                  {
+                    "fieldName": "measure(Fato_Voos__voos_realizados)",
+                    "format": {
+                      "type": "number-plain",
+                      "abbreviation": "compact"
+                    },
+                    "displayName": "Realizados"
+                  },
+                  {
+                    "fieldName": "measure(Fato_Voos__voos_cancelados)",
+                    "format": {
+                      "type": "number-plain",
+                      "abbreviation": "compact"
+                    },
+                    "displayName": "Cancelados"
+                  },
+                  {
+                    "fieldName": "measure(Fato_Voos__taxa_cancelamento)",
+                    "format": {
+                      "type": "number-percent",
+                      "decimalPlaces": {
+                        "type": "exact",
+                        "places": 2
+                      }
+                    },
+                    "displayName": "Tx. Cancelamento"
+                  },
+                  {
+                    "fieldName": "measure(Fato_Voos__otp_partida)",
+                    "format": {
+                      "type": "number-percent",
+                      "decimalPlaces": {
+                        "type": "exact",
+                        "places": 2
+                      }
+                    },
+                    "displayName": "OTP Partida"
+                  }
+                ]
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 24,
+            "width": 12,
+            "height": 6
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1"
+    },
+    {
+      "name": "analise_rotas",
+      "displayName": "Análise de Rotas",
+      "layout": [
+        {
+          "widget": {
+            "name": "rotas_title",
+            "multilineTextboxSpec": {
+              "lines": [
+                "## Análise de Rotas\n",
+                "### Volume, Distância e Performance por Corredor Aéreo"
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 12,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "rotas_kpi_total_voos",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "fields": [
+                    {
+                      "name": "measure(Fato_Voos__total_voos)",
+                      "expression": "MEASURE(`Fato_Voos`.`total_voos`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Total de Voos"
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(Fato_Voos__total_voos)",
+                  "format": {
+                    "abbreviation": "compact",
+                    "type": "number-plain"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 1,
+            "width": 3,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "rotas_kpi_total_rotas",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "fields": [
+                    {
+                      "name": "measure(Rotas__total_rotas)",
+                      "expression": "MEASURE(`Rotas`.`total_rotas`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Total de Rotas"
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(Rotas__total_rotas)",
+                  "format": {
+                    "abbreviation": "compact",
+                    "type": "number-plain"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 1,
+            "width": 3,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "rotas_kpi_dist_media",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "fields": [
+                    {
+                      "name": "measure(Rotas__distancia_media)",
+                      "expression": "MEASURE(`Rotas`.`distancia_media`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Distância Média (km)"
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(Rotas__distancia_media)",
+                  "format": {
+                    "abbreviation": "compact",
+                    "decimalPlaces": {
+                      "places": 0,
+                      "type": "exact"
+                    },
+                    "type": "number-plain"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 1,
+            "width": 3,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "rotas_kpi_dist_max",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "fields": [
+                    {
+                      "name": "measure(Rotas__distancia_maxima)",
+                      "expression": "MEASURE(`Rotas`.`distancia_maxima`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Distância Máxima (km)"
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(Rotas__distancia_maxima)",
+                  "format": {
+                    "abbreviation": "compact",
+                    "decimalPlaces": {
+                      "places": 0,
+                      "type": "exact"
+                    },
+                    "type": "number-plain"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 9,
+            "y": 1,
+            "width": 3,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "rotas_bar_top20",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "fields": [
+                    {
+                      "name": "Rotas__route_name",
+                      "expression": "`Rotas`.`route_name`"
+                    },
+                    {
+                      "name": "measure(Fato_Voos__total_voos)",
+                      "expression": "MEASURE(`Fato_Voos`.`total_voos`)"
+                    }
+                  ],
+                  "disaggregated": false,
+                  "orders": [
+                    {
+                      "direction": "DESC",
+                      "expression": "MEASURE(`Fato_Voos`.`total_voos`)"
+                    }
+                  ]
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Top Rotas por Volume de Voos"
+              },
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "Rotas__route_name",
+                  "scale": {
+                    "type": "categorical",
+                    "sort": {
+                      "by": "measure-reversed",
+                      "measure": {
+                        "fieldName": "measure(Fato_Voos__total_voos)"
+                      }
+                    }
+                  }
+                },
+                "y": {
+                  "fieldName": "measure(Fato_Voos__total_voos)",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 3,
+            "width": 8,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "rotas_pie_faixa_dist",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "fields": [
+                    {
+                      "name": "measure(Fato_Voos__total_voos)",
+                      "expression": "MEASURE(`Fato_Voos`.`total_voos`)"
+                    },
+                    {
+                      "name": "Rotas__faixa_distancia",
+                      "expression": "`Rotas`.`faixa_distancia`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Distribuição por Faixa de Distância"
+              },
+              "version": 3,
+              "widgetType": "pie",
+              "encodings": {
+                "angle": {
+                  "fieldName": "measure(Fato_Voos__total_voos)",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "Rotas__faixa_distancia",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 8,
+            "y": 3,
+            "width": 4,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "rotas_scatter_dist_vol",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "fields": [
+                    {
+                      "name": "Rotas__faixa_distancia",
+                      "expression": "`Rotas`.`faixa_distancia`"
+                    },
+                    {
+                      "name": "Rotas__distancia_km",
+                      "expression": "`Rotas`.`distancia_km`"
+                    },
+                    {
+                      "name": "measure(Fato_Voos__total_voos)",
+                      "expression": "MEASURE(`Fato_Voos`.`total_voos`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Distância vs Volume de Voos"
+              },
+              "version": 3,
+              "widgetType": "scatter",
+              "encodings": {
+                "x": {
+                  "fieldName": "Rotas__distancia_km",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "y": {
+                  "fieldName": "measure(Fato_Voos__total_voos)",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "Rotas__faixa_distancia",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 9,
+            "width": 6,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "rotas_bar_cancel_faixa",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "fields": [
+                    {
+                      "name": "Rotas__faixa_distancia",
+                      "expression": "`Rotas`.`faixa_distancia`"
+                    },
+                    {
+                      "name": "measure(Fato_Voos__voos_cancelados)",
+                      "expression": "MEASURE(`Fato_Voos`.`voos_cancelados`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Cancelamentos por Faixa de Distância"
+              },
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "Rotas__faixa_distancia",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "measure(Fato_Voos__voos_cancelados)",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 9,
+            "width": 6,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "rotas_table_detalhe",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "fields": [
+                    {
+                      "name": "Rotas__route_name",
+                      "expression": "`Rotas`.`route_name`"
+                    },
+                    {
+                      "name": "measure(Fato_Voos__total_voos)",
+                      "expression": "MEASURE(`Fato_Voos`.`total_voos`)"
+                    },
+                    {
+                      "name": "measure(Fato_Voos__voos_realizados)",
+                      "expression": "MEASURE(`Fato_Voos`.`voos_realizados`)"
+                    },
+                    {
+                      "name": "measure(Fato_Voos__voos_cancelados)",
+                      "expression": "MEASURE(`Fato_Voos`.`voos_cancelados`)"
+                    },
+                    {
+                      "name": "measure(Fato_Voos__taxa_cancelamento)",
+                      "expression": "MEASURE(`Fato_Voos`.`taxa_cancelamento`)"
+                    },
+                    {
+                      "name": "Rotas__distancia_km",
+                      "expression": "`Rotas`.`distancia_km`"
+                    },
+                    {
+                      "name": "Rotas__faixa_distancia",
+                      "expression": "`Rotas`.`faixa_distancia`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Detalhe por Rota"
+              },
+              "bandedRows": {
+                "enabled": true
+              },
+              "displayRowNumbers": true,
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "Rotas__route_name",
+                    "displayName": "Rota"
+                  },
+                  {
+                    "fieldName": "measure(Fato_Voos__total_voos)",
+                    "format": {
+                      "abbreviation": "compact",
+                      "type": "number-plain"
+                    },
+                    "displayName": "Total Voos"
+                  },
+                  {
+                    "fieldName": "measure(Fato_Voos__voos_realizados)",
+                    "format": {
+                      "abbreviation": "compact",
+                      "type": "number-plain"
+                    },
+                    "displayName": "Realizados"
+                  },
+                  {
+                    "fieldName": "measure(Fato_Voos__voos_cancelados)",
+                    "format": {
+                      "abbreviation": "compact",
+                      "type": "number-plain"
+                    },
+                    "displayName": "Cancelados"
+                  },
+                  {
+                    "fieldName": "measure(Fato_Voos__taxa_cancelamento)",
+                    "format": {
+                      "decimalPlaces": {
+                        "places": 2,
+                        "type": "exact"
+                      },
+                      "type": "number-percent"
+                    },
+                    "displayName": "Tx. Cancel."
+                  },
+                  {
+                    "fieldName": "Rotas__distancia_km",
+                    "format": {
+                      "abbreviation": "none",
+                      "decimalPlaces": {
+                        "places": 0,
+                        "type": "exact"
+                      },
+                      "type": "number-plain"
+                    },
+                    "displayName": "Distância (km)"
+                  },
+                  {
+                    "fieldName": "Rotas__faixa_distancia",
+                    "displayName": "Faixa Distância"
+                  }
+                ]
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 15,
+            "width": 12,
+            "height": 6
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1"
+    }
+  ],
+  "uiSettings": {
+    "theme": {
+      "widgetHeaderAlignment": "ALIGNMENT_UNSPECIFIED"
+    },
+    "applyModeEnabled": false
+  }
+}
