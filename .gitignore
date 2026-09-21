@@ -16,6 +16,13 @@ venv/
 .env.*
 !.env.example
 
+# Cloudflare Worker — .dev.vars guarda a chave da IA no desenvolvimento local.
+# Nunca pode ser commitado: bots varrem o GitHub procurando chave de API.
+.dev.vars
+.dev.vars.*
+.wrangler/
+node_modules/
+
 # Sistema
 .DS_Store
 Thumbs.db
