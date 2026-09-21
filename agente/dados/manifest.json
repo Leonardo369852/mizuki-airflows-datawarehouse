@@ -1,0 +1,47 @@
+{
+  "gerado_em": "2026-09-21T17:00:01+00:00",
+  "origem": "mizukiairflows.gold.obt_voos",
+  "tabelas": {
+    "fato_voos": {
+      "linhas": 86518,
+      "bytes": 1452843
+    },
+    "dim_empresa": {
+      "linhas": 118,
+      "bytes": 9078
+    },
+    "dim_aerodromo": {
+      "linhas": 224,
+      "bytes": 16132
+    },
+    "dim_rota": {
+      "linhas": 3104,
+      "bytes": 27292
+    },
+    "dim_tempo": {
+      "linhas": 14,
+      "bytes": 7085
+    }
+  },
+  "definicoes": {
+    "otp": "SUM(partidas_pontuais) / SUM(realizados) — cancelado não entra no denominador, porque voo que não saiu não pode ser pontual nem atrasado",
+    "pontual": "atraso de partida <= 15 min (padrão ANAC/IATA)",
+    "atraso_severo": "atraso de partida > 60 min",
+    "media_de_atraso": "SUM(soma_atraso_partida) / SUM(com_atraso_partida) — nunca a média de uma média",
+    "faixa_plausivel": [
+      -60,
+      1440
+    ]
+  },
+  "qualidade": {
+    "total_voos": 1014705,
+    "sem_data_prevista": 30800,
+    "cancelados": 29145,
+    "justificativas_distintas": 1,
+    "empresas": 118,
+    "origens": 374,
+    "otp_global": 79.9,
+    "otp_com_data": 82.5,
+    "atrasos_implausiveis": 1378
+  }
+}
