@@ -311,16 +311,26 @@ print(f"\n  Rotas com origem = destino: {circulares} ({voos_circulares:,} voos)"
 tempo_sql = """
 SELECT
   ano_mes,
-  MAX(ano)       AS ano,
-  MAX(mes)       AS mes,
-  MAX(nome_mes)  AS nome_mes,
-  MAX(trimestre) AS trimestre,
+  CAST(MAX(ano) AS INT)       AS ano,
+  CAST(MAX(mes) AS INT)       AS mes,
+  /* O nome_mes da OBT vem do date_format do Spark com locale padrão, ou seja em
+     inglês ("August"), e repete entre anos: agosto de 2025 e agosto de 2026 teriam
+     o mesmo rótulo, e um GROUP BY nome_mes somaria os dois numa linha só. Aqui ele
+     é reconstruído em português e qualificado pelo ano, o que conserta o idioma e
+     torna a coluna única por linha. Quem quiser agrupar por mês do ano ainda tem
+     a coluna `mes`. */
+  CASE MAX(mes)
+    WHEN 1 THEN 'jan' WHEN 2 THEN 'fev' WHEN 3  THEN 'mar' WHEN 4  THEN 'abr'
+    WHEN 5 THEN 'mai' WHEN 6 THEN 'jun' WHEN 7  THEN 'jul' WHEN 8  THEN 'ago'
+    WHEN 9 THEN 'set' WHEN 10 THEN 'out' WHEN 11 THEN 'nov' WHEN 12 THEN 'dez'
+  END || '/' || CAST(MAX(ano) AS INT)                       AS nome_mes,
+  CAST(MAX(trimestre) AS INT) AS trimestre,
   MAX(estacao)   AS estacao,
   MIN(data_partida_prevista) AS primeiro_dia,
   MAX(data_partida_prevista) AS ultimo_dia,
   COUNT(DISTINCT data_partida_prevista) AS dias_com_voo,
   COUNT(*) AS voos,
-  COALESCE(MAX(ano) * 100 + MAX(mes), 999999) AS ordem
+  COALESCE(CAST(MAX(ano) * 100 + MAX(mes) AS INT), 999999) AS ordem
 FROM mizukiairflows.gold.obt_voos
 GROUP BY ano_mes
 """
