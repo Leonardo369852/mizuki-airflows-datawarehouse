@@ -1,0 +1,1483 @@
+<title>Mizuki Airflows</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Source+Sans+3:wght@400;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+
+<style>
+:root {
+  --plane:        #f9f9f7;
+  --surface:      #fcfcfb;
+  --surface-sunk: #f2f1ed;
+  --ink:          #0b0b0b;
+  --ink-2:        #52514e;
+  --ink-muted:    #898781;
+  --grid:         #e1e0d9;
+  --axis:         #c3c2b7;
+  --hair:         rgba(11,11,11,.10);
+  --s1:           #2a78d6;
+  --s2:           #eb6834;
+  --s3:           #1baf7a;
+  --good:         #0ca30c;
+  --warning:      #fab219;
+  --serious:      #ec835a;
+  --critical:     #d03b3b;
+  --s1-wash:      rgba(42,120,214,.12);
+  --s2-wash:      rgba(235,104,52,.12);
+  --shadow:       0 1px 2px rgba(11,11,11,.05);
+
+  --display: "Archivo", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --body:    "Source Sans 3", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono:    "IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --plane:        #0d0d0d;
+    --surface:      #1a1a19;
+    --surface-sunk: #131312;
+    --ink:          #ffffff;
+    --ink-2:        #c3c2b7;
+    --ink-muted:    #898781;
+    --grid:         #2c2c2a;
+    --axis:         #383835;
+    --hair:         rgba(255,255,255,.10);
+    --s1:           #3987e5;
+    --s2:           #d95926;
+    --s3:           #199e70;
+    --s1-wash:      rgba(57,135,229,.16);
+    --s2-wash:      rgba(217,89,38,.16);
+    --shadow:       0 1px 2px rgba(0,0,0,.4);
+  }
+}
+:root[data-theme="dark"] {
+  --plane:        #0d0d0d;
+  --surface:      #1a1a19;
+  --surface-sunk: #131312;
+  --ink:          #ffffff;
+  --ink-2:        #c3c2b7;
+  --ink-muted:    #898781;
+  --grid:         #2c2c2a;
+  --axis:         #383835;
+  --hair:         rgba(255,255,255,.10);
+  --s1:           #3987e5;
+  --s2:           #d95926;
+  --s3:           #199e70;
+  --s1-wash:      rgba(57,135,229,.16);
+  --s2-wash:      rgba(217,89,38,.16);
+  --shadow:       0 1px 2px rgba(0,0,0,.4);
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--plane);
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 1080px; margin: 0 auto; padding-inline: 16px; padding-block: 0 56px; }
+
+/* ---------- header ---------- */
+.masthead { border-bottom: 1px solid var(--hair); background: var(--surface); }
+.masthead .wrap { padding-block: 26px 22px; }
+.eyebrow {
+  font-family: var(--mono); font-size: 11px; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--ink-muted); margin: 0 0 10px;
+}
+h1 {
+  font-family: var(--display); font-weight: 700; font-size: clamp(30px, 6vw, 46px);
+  line-height: 1.02; letter-spacing: -.02em; margin: 0 0 12px; text-wrap: balance;
+}
+.lede { margin: 0; max-width: 60ch; color: var(--ink-2); font-size: 16px; }
+.stamps { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+.stamp {
+  font-family: var(--mono); font-size: 11px; letter-spacing: .04em;
+  border: 1px solid var(--hair); border-radius: 3px; padding: 4px 8px;
+  color: var(--ink-2); background: var(--surface-sunk); white-space: nowrap;
+}
+
+/* ---------- sections ---------- */
+section { margin-top: 44px; }
+.sec-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 4px; }
+h2 {
+  font-family: var(--display); font-weight: 600; font-size: 21px; letter-spacing: -.01em;
+  margin: 0; text-wrap: balance;
+}
+.sec-num {
+  font-family: var(--mono); font-size: 11px; color: var(--ink-muted);
+  letter-spacing: .08em; padding-top: 3px;
+}
+.sec-note { margin: 6px 0 20px; color: var(--ink-2); max-width: 68ch; font-size: 14.5px; }
+
+/* ---------- kpi ---------- */
+.kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--hair);
+        border: 1px solid var(--hair); border-radius: 4px; overflow: hidden; }
+.kpi { background: var(--surface); padding: 16px 14px 14px; }
+.kpi-k { font-family: var(--mono); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase;
+         color: var(--ink-muted); margin-bottom: 7px; }
+.kpi-v { font-family: var(--display); font-weight: 700; font-size: 27px; letter-spacing: -.02em;
+         line-height: 1.05; }
+.kpi-v .unit { font-size: 14px; font-weight: 500; color: var(--ink-2); margin-left: 2px; }
+.kpi-sub { font-size: 12.5px; color: var(--ink-2); margin-top: 5px; }
+.kpi-rail { border-top: 2px solid transparent; }
+.rail-s1 { border-top-color: var(--s1); }
+.rail-good { border-top-color: var(--good); }
+.rail-crit { border-top-color: var(--critical); }
+.kpis.secondary .kpi-v { font-size: 21px; font-weight: 600; }
+
+/* ---------- panels & charts ---------- */
+.panel { background: var(--surface); border: 1px solid var(--hair); border-radius: 4px;
+         padding: 16px 16px 12px; box-shadow: var(--shadow); }
+.panel-t { font-family: var(--display); font-weight: 600; font-size: 14.5px; margin: 0 0 2px; }
+.panel-s { font-size: 12.5px; color: var(--ink-2); margin: 0 0 12px; }
+.duo { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.trio { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+svg { display: block; width: 100%; height: auto; overflow: visible; }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; margin: 10px 0 0; font-size: 12.5px; color: var(--ink-2); }
+.legend i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; margin-right: 5px;
+            vertical-align: 1px; }
+
+/* ---------- tables ---------- */
+.tscroll { overflow-x: auto; border: 1px solid var(--hair); border-radius: 4px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 13.5px; min-width: 620px; }
+th, td { text-align: right; padding: 8px 12px; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+th {
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: .05em; text-transform: uppercase;
+  color: var(--ink-muted); font-weight: 500; position: sticky; top: 0; background: var(--surface);
+  border-bottom: 1px solid var(--axis);
+}
+th.sortable { cursor: pointer; user-select: none; }
+th.sortable:hover { color: var(--ink); }
+th[aria-sort] { color: var(--ink); }
+th[aria-sort]::after { content: " ▾"; }
+tbody tr:last-child td { border-bottom: 0; }
+td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.icao { font-family: var(--mono); font-size: 12px; color: var(--ink-muted); margin-right: 7px; }
+.bar-cell { position: relative; }
+.bar-cell span { position: relative; z-index: 1; }
+.bar-cell::before {
+  content: ""; position: absolute; inset: 3px auto 3px 0; width: var(--w, 0);
+  background: var(--s1-wash); border-radius: 2px;
+}
+.flag { font-family: var(--mono); font-size: 10px; letter-spacing: .04em; padding: 1px 5px;
+        border-radius: 2px; border: 1px solid var(--hair); color: var(--ink-2); }
+
+/* ---------- agent ---------- */
+.agent { border: 1px solid var(--hair); border-radius: 4px; background: var(--surface);
+         box-shadow: var(--shadow); overflow: hidden; }
+.agent-head { padding: 14px 16px; border-bottom: 1px solid var(--hair); display: flex;
+              justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.agent-title { font-family: var(--display); font-weight: 600; font-size: 14.5px; }
+.agent-state { font-family: var(--mono); font-size: 10.5px; letter-spacing: .06em;
+               text-transform: uppercase; color: var(--ink-muted); }
+.chips { display: flex; flex-wrap: wrap; gap: 7px; padding: 14px 16px 0; }
+.chip {
+  font-family: var(--body); font-size: 13px; color: var(--ink-2); background: var(--surface-sunk);
+  border: 1px solid var(--hair); border-radius: 999px; padding: 5px 11px; cursor: pointer;
+  text-align: left; line-height: 1.3;
+}
+.chip:hover { color: var(--ink); border-color: var(--axis); }
+.log { padding: 14px 16px 0; display: flex; flex-direction: column; gap: 12px; }
+.turn { max-width: 68ch; }
+.turn .who { font-family: var(--mono); font-size: 10.5px; letter-spacing: .07em;
+             text-transform: uppercase; color: var(--ink-muted); margin-bottom: 4px; }
+.turn.me .bubble { background: var(--surface-sunk); border-left: 2px solid var(--s1);
+                   padding: 8px 12px; border-radius: 0 4px 4px 0; }
+.bubble { white-space: pre-wrap; }
+.bubble strong { font-weight: 600; }
+.composer { display: flex; gap: 8px; padding: 14px 16px; align-items: flex-end; }
+textarea {
+  flex: 1; resize: vertical; min-height: 44px; max-height: 160px; font-family: var(--body);
+  font-size: 15px; color: var(--ink); background: var(--surface-sunk); border: 1px solid var(--hair);
+  border-radius: 4px; padding: 10px 12px; line-height: 1.45;
+}
+button.go {
+  font-family: var(--display); font-weight: 600; font-size: 14px; color: #fff; background: var(--s1);
+  border: 0; border-radius: 4px; padding: 11px 16px; cursor: pointer;
+}
+button.go:hover { filter: brightness(1.08); }
+button.go[disabled] { opacity: .45; cursor: default; }
+button.ghost {
+  font-family: var(--body); font-size: 13px; color: var(--ink-2); background: transparent;
+  border: 1px solid var(--hair); border-radius: 4px; padding: 6px 10px; cursor: pointer;
+}
+.agent-foot { padding: 0 16px 14px; font-size: 12px; color: var(--ink-muted); }
+
+/* ---------- findings ---------- */
+.finds { display: grid; gap: 1px; background: var(--hair); border: 1px solid var(--hair);
+         border-radius: 4px; overflow: hidden; }
+.find { background: var(--surface); padding: 15px 16px; display: grid;
+        grid-template-columns: 76px 1fr; gap: 14px; align-items: start; }
+.sev { font-family: var(--mono); font-size: 10px; letter-spacing: .05em; text-transform: uppercase;
+       padding: 3px 0 3px 8px; border-left: 3px solid var(--axis); color: var(--ink-2); }
+.sev.alto { border-left-color: var(--critical); }
+.sev.medio { border-left-color: var(--serious); }
+.sev.baixo { border-left-color: var(--warning); }
+.find h3 { font-family: var(--display); font-weight: 600; font-size: 14.5px; margin: 0 0 4px; }
+.find p { margin: 0; font-size: 14px; color: var(--ink-2); max-width: 70ch; }
+.find code, code.inl { font-family: var(--mono); font-size: 12.5px; background: var(--surface-sunk);
+                       padding: 1px 4px; border-radius: 2px; color: var(--ink); }
+
+/* ---------- tooltip ---------- */
+#tip {
+  position: fixed; z-index: 50; pointer-events: none; background: var(--surface);
+  border: 1px solid var(--axis); border-radius: 4px; padding: 7px 10px; font-size: 12.5px;
+  box-shadow: 0 4px 14px rgba(0,0,0,.14); max-width: 250px; line-height: 1.4;
+}
+#tip .tt { font-family: var(--display); font-weight: 600; font-size: 13px; margin-bottom: 3px; }
+#tip .tr { display: flex; justify-content: space-between; gap: 14px; color: var(--ink-2); }
+#tip .tr b { font-family: var(--mono); font-variant-numeric: tabular-nums; color: var(--ink);
+             font-weight: 500; }
+
+footer { margin-top: 48px; padding-top: 20px; border-top: 1px solid var(--hair);
+         font-size: 13px; color: var(--ink-2); }
+footer a { color: var(--s1); }
+dl.defs { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 12px 0 0; }
+dl.defs dt { font-family: var(--mono); font-size: 11.5px; color: var(--ink-muted); }
+dl.defs dd { margin: 0; font-size: 13.5px; }
+
+:focus-visible { outline: 2px solid var(--s1); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+@media (max-width: 760px) {
+  .kpis { grid-template-columns: repeat(2, 1fr); }
+  .duo, .trio { grid-template-columns: 1fr; }
+  .find { grid-template-columns: 1fr; gap: 6px; }
+  .sev { border-left: 0; padding-left: 0; border-top: 3px solid var(--axis); padding-top: 6px; }
+  .sev.alto { border-top-color: var(--critical); }
+  .sev.medio { border-top-color: var(--serious); }
+  .sev.baixo { border-top-color: var(--warning); }
+}
+</style>
+
+<header class="masthead">
+  <div class="wrap">
+    <p class="eyebrow">Dados abertos da ANAC · Voo Regular Ativo</p>
+    <h1>Mizuki Airflows</h1>
+    <p class="lede">Um data warehouse de operações aéreas brasileiras, resumido numa página.
+      Um milhão de voos, doze meses, 3.104 rotas — e um agente que responde perguntas sobre eles
+      sem você escrever uma linha de SQL.</p>
+    <div class="stamps">
+      <span class="stamp">ago/2025 → jul/2026</span>
+      <span class="stamp">1.014.705 voos</span>
+      <span class="stamp">118 empresas operando</span>
+      <span class="stamp">374 aeródromos de origem</span>
+      <span class="stamp">agregados da camada gold</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <!-- ============ 1. PANORAMA ============ -->
+  <section id="panorama">
+    <div class="sec-head"><span class="sec-num">01</span><h2>O ano em oito números</h2></div>
+    <p class="sec-note">Pontualidade pelo critério oficial ANAC/IATA: partida com até 15 minutos de
+      atraso. O denominador é o voo realizado — quem não decolou não pode ser pontual nem atrasado.</p>
+
+    <div class="kpis">
+      <div class="kpi kpi-rail rail-s1">
+        <div class="kpi-k">Voos no período</div>
+        <div class="kpi-v">1.014.705</div>
+        <div class="kpi-sub">um registro por voo do VRA</div>
+      </div>
+      <div class="kpi kpi-rail rail-good">
+        <div class="kpi-k">Realizados</div>
+        <div class="kpi-v">985.560</div>
+        <div class="kpi-sub">97,1% do total</div>
+      </div>
+      <div class="kpi kpi-rail rail-s1">
+        <div class="kpi-k">Pontualidade na partida</div>
+        <div class="kpi-v">79,9<span class="unit">%</span></div>
+        <div class="kpi-sub">82,5% entre os voos com horário previsto</div>
+      </div>
+      <div class="kpi kpi-rail rail-crit">
+        <div class="kpi-k">Cancelamento</div>
+        <div class="kpi-v">2,87<span class="unit">%</span></div>
+        <div class="kpi-sub">29.145 voos cancelados</div>
+      </div>
+    </div>
+
+    <div class="kpis secondary" style="margin-top:14px">
+      <div class="kpi">
+        <div class="kpi-k">Atraso médio de partida</div>
+        <div class="kpi-v">7,8<span class="unit">min</span></div>
+        <div class="kpi-sub">sobre os realizados</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-k">Atraso médio de chegada</div>
+        <div class="kpi-v">4,3<span class="unit">min</span></div>
+        <div class="kpi-sub">menor que o de partida</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-k">Recuperado em voo</div>
+        <div class="kpi-v">3,6<span class="unit">min</span></div>
+        <div class="kpi-sub">atraso de partida − de chegada</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-k">Duração média</div>
+        <div class="kpi-v">159,7<span class="unit">min</span></div>
+        <div class="kpi-sub">decolagem a pouso, real</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 2. AGENTE ============ -->
+  <section id="agente">
+    <div class="sec-head"><span class="sec-num">02</span><h2>Pergunte aos dados</h2></div>
+    <p class="sec-note">O agente recebe os mesmos agregados que alimentam os gráficos desta página —
+      empresas, meses, rotas, aeródromos e cortes operacionais — junto com a definição de cada métrica.
+      Ele responde sobre isso e diz quando a resposta não está nos dados.</p>
+
+    <div class="agent">
+      <div class="agent-head">
+        <span class="agent-title">Agente Mizuki</span>
+        <span class="agent-state" id="agentState">verificando disponibilidade…</span>
+      </div>
+      <div class="chips" id="chips" hidden></div>
+      <div class="log" id="log"></div>
+      <div class="composer" id="composer" hidden>
+        <textarea id="q" rows="1" placeholder="Ex.: qual empresa recupera mais atraso no ar?"
+          aria-label="Sua pergunta"></textarea>
+        <button class="go" id="send" type="button">Perguntar</button>
+        <button class="ghost" id="stop" type="button" hidden>Parar</button>
+      </div>
+      <p class="agent-foot" id="agentFoot"></p>
+    </div>
+  </section>
+
+  <!-- ============ 3. MÊS A MÊS ============ -->
+  <section id="tempo">
+    <div class="sec-head"><span class="sec-num">03</span><h2>Dezembro cobra o preço</h2></div>
+    <p class="sec-note">O volume é estável ao longo do ano — varia 13% entre o mês mais cheio e o mais
+      vazio. A pontualidade não: desaba 14 pontos em dezembro, com o atraso médio de partida saltando
+      de 8 para 15,6 minutos e o cancelamento batendo 4%.</p>
+    <div class="duo">
+      <div class="panel">
+        <p class="panel-t">Voos por mês</p>
+        <p class="panel-s">Barra cheia = realizados; recorte = cancelados.</p>
+        <div id="chMesVol"></div>
+      </div>
+      <div class="panel">
+        <p class="panel-t">Pontualidade de partida por mês</p>
+        <p class="panel-s">Percentual dos realizados com até 15 min de atraso.</p>
+        <div id="chMesOtp"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 4. SÃO PAULO ============ -->
+  <section id="assimetria">
+    <div class="sec-head"><span class="sec-num">04</span><h2>Sair de São Paulo é sempre pior</h2></div>
+    <p class="sec-note">A mesma rota, nos dois sentidos, tem pontualidade diferente — e a diferença
+      tem sempre o mesmo sinal. Em 17 dos 17 pares mais movimentados do país, o voo que <em>parte</em>
+      de Congonhas, Guarulhos ou Viracopos é menos pontual que o voo que <em>chega</em> lá. A conta é
+      voo a voo, sem modelo: só o par origem-destino invertido.</p>
+    <div class="panel">
+      <p class="panel-t">Pontualidade por sentido, nas rotas de maior volume</p>
+      <p class="panel-s">Cada linha é um par de aeródromos. Passe o mouse para ver volume e distância.</p>
+      <div id="chAssim"></div>
+      <div class="legend">
+        <span><i style="background:var(--s1)"></i>Chegando em São Paulo</span>
+        <span><i style="background:var(--s2)"></i>Saindo de São Paulo</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 5. EMPRESAS ============ -->
+  <section id="empresas">
+    <div class="sec-head"><span class="sec-num">05</span><h2>Quem voa, e com que pontualidade</h2></div>
+    <p class="sec-note">Três empresas concentram 83,4% dos voos. O corte que mais separa o grupo não é
+      o tamanho: é a origem do cadastro — as nacionais entregam 81,8% de pontualidade contra 67,2% das
+      estrangeiras, com atraso médio de 5,4 contra 25,0 minutos.</p>
+    <div class="duo">
+      <div class="panel">
+        <p class="panel-t">Volume por empresa</p>
+        <p class="panel-s">Doze maiores, em voos no período.</p>
+        <div id="chEmpVol"></div>
+      </div>
+      <div class="panel">
+        <p class="panel-t">Pontualidade × volume</p>
+        <p class="panel-s">Empresas com mais de 2.000 voos. Linha tracejada: média do período.</p>
+        <div id="chEmpOtp"></div>
+      </div>
+    </div>
+
+    <p class="sec-note" style="margin-top:20px">Tabela completa das 53 empresas com 500 voos ou mais.
+      Clique num cabeçalho para reordenar.</p>
+    <div class="tscroll">
+      <table id="tabEmp">
+        <thead>
+          <tr>
+            <th>Empresa</th>
+            <th class="sortable" data-k="voos" aria-sort="descending">Voos</th>
+            <th class="sortable" data-k="pctC">Cancel.</th>
+            <th class="sortable" data-k="otpP">OTP partida</th>
+            <th class="sortable" data-k="otpC">OTP chegada</th>
+            <th class="sortable" data-k="atrP">Atraso part.</th>
+            <th class="sortable" data-k="recup">Recuperado</th>
+            <th class="sortable" data-k="rotas">Rotas</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============ 6. MALHA ============ -->
+  <section id="malha">
+    <div class="sec-head"><span class="sec-num">06</span><h2>A malha, de Boa Vista a Noronha</h2></div>
+    <p class="sec-note">A distância de cada rota é calculada por Haversine a partir das coordenadas dos
+      aeródromos. O par mais curto do país com voo regular liga Galeão a Santos Dumont: 14,3 km,
+      51 voos. O mais longo liga Boa Vista a Porto Alegre, 3.788,9 km.</p>
+    <div class="panel">
+      <p class="panel-t">Aeródromos de origem</p>
+      <p class="panel-s">Área do círculo proporcional ao volume de partidas. Grade em graus decimais.</p>
+      <div id="chMapa"></div>
+      <div class="legend" id="mapLegend"></div>
+    </div>
+    <div class="duo" style="margin-top:14px">
+      <div class="panel">
+        <p class="panel-t">Pontualidade por faixa de distância</p>
+        <p class="panel-s">Voo curto atrasa mais que voo médio — a folga do longo compensa.</p>
+        <div id="chFaixa"></div>
+      </div>
+      <div class="panel">
+        <p class="panel-t">Pontualidade por tipo de linha</p>
+        <p class="panel-s">A aviação geral opera num regime completamente diferente.</p>
+        <div id="chTipo"></div>
+      </div>
+    </div>
+
+    <p class="sec-note" style="margin-top:20px">As vinte rotas mais movimentadas.</p>
+    <div class="tscroll">
+      <table id="tabRotas">
+        <thead>
+          <tr>
+            <th>Rota</th><th>Distância</th><th>Voos</th><th>Cancel.</th>
+            <th>OTP partida</th><th>Duração média</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============ 7. CORTES ============ -->
+  <section id="cortes">
+    <div class="sec-head"><span class="sec-num">07</span><h2>Quando o atraso acontece</h2></div>
+    <p class="sec-note">A madrugada é o período mais pontual do dia e a noite o menos — o atraso se
+      acumula ao longo da jornada da aeronave e só zera quando ela dorme. O padrão semanal é o mesmo
+      todo ano: sexta é o pior dia, sábado o melhor.</p>
+    <div class="trio">
+      <div class="panel">
+        <p class="panel-t">Período de partida</p>
+        <p class="panel-s">Pela hora prevista.</p>
+        <div id="chPeriodo"></div>
+      </div>
+      <div class="panel">
+        <p class="panel-t">Dia da semana</p>
+        <p class="panel-s">Pela data prevista.</p>
+        <div id="chDia"></div>
+      </div>
+      <div class="panel">
+        <p class="panel-t">Estação</p>
+        <p class="panel-s">Verão puxa tudo para baixo.</p>
+        <div id="chEstacao"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 8. QUALIDADE ============ -->
+  <section id="qualidade">
+    <div class="sec-head"><span class="sec-num">08</span><h2>O que os dados não contam sozinhos</h2></div>
+    <p class="sec-note">Quatro problemas que a fonte traz e o warehouse propaga. Nenhum invalida as
+      análises acima, mas cada um muda a leitura de um número — e é por isso que estão nesta página em
+      vez de ficarem num comentário de código.</p>
+    <div class="finds">
+      <div class="find">
+        <div class="sev alto">alto</div>
+        <div>
+          <h3>30.800 voos não têm data de partida prevista</h3>
+          <p>São 3,0% do total. Sem horário previsto o atraso não pode ser calculado, então nenhum
+            desses voos entra como pontual — mas todos entram no denominador. É o que faz a
+            pontualidade geral (79,9%) ficar <em>abaixo</em> de todos os doze meses individuais, que
+            variam de 81,4% a 85,9%. Sobre os 954.760 realizados com horário previsto, o OTP é
+            <strong>82,5%</strong>. Eles também não aparecem em nenhum corte por tempo, período do dia
+            ou estação.</p>
+        </div>
+      </div>
+      <div class="find">
+        <div class="sev alto">alto</div>
+        <div>
+          <h3>A justificativa de cancelamento vem vazia</h3>
+          <p>Todos os 29.145 cancelamentos trazem <code>N/A</code> em
+            <code>codigo_justificativa</code> — um único valor distinto na coluna inteira. A pergunta
+            "por que este voo foi cancelado" não tem resposta neste recorte da fonte, por mais que a
+            coluna exista no schema.</p>
+        </div>
+      </div>
+      <div class="find">
+        <div class="sev medio">médio</div>
+        <div>
+          <h3>O nome das empresas estrangeiras está corrompido</h3>
+          <p>No cadastro chega <code>TRANSPORTES AÃREOS</code> onde deveria estar
+            <code>TRANSPORTES AÉREOS</code>: clássico UTF-8 lido como ISO-8859-1. Atinge só o arquivo
+            de estrangeiras — o de nacionais vem correto —, o que indica dois encodings diferentes na
+            mesma origem. Nesta página os nomes foram corrigidos na exibição; no warehouse, a correção
+            é na leitura do CSV, na Bronze.</p>
+        </div>
+      </div>
+      <div class="find">
+        <div class="sev medio">médio</div>
+        <div>
+          <h3>Atrasos impossíveis e rotas que não saem do lugar</h3>
+          <p>Há timestamps invertidos na fonte: uma empresa aparece com atraso médio de
+            <strong>−4.313 minutos</strong> (três dias adiantada) e uma rota com duração média de
+            175.454 minutos. Há também 3.104 pares origem-destino que incluem voos em que a origem é
+            igual ao destino — 568 só em Guarulhos, com distância 0 km. São operações de retorno e
+            treinamento, mas contaminam qualquer média de distância mínima. Os gráficos desta página
+            descartam os registros fora de faixa; a tabela de empresas os marca.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <p><strong>Fonte:</strong> dados abertos da ANAC —
+      <a href="https://sistemas.anac.gov.br/dadosabertos/" target="_blank" rel="noopener">sistemas.anac.gov.br/dadosabertos</a>.
+      Esta página mostra agregados da camada Gold do warehouse; o modelo dimensional completo, com os
+      1.014.705 voos linha a linha, roda no Databricks.</p>
+    <dl class="defs">
+      <dt>OTP</dt><dd>voos pontuais ÷ voos realizados. Pontual = atraso de partida ≤ 15 min (padrão ANAC/IATA).</dd>
+      <dt>Atraso severo</dt><dd>atraso de partida acima de 60 minutos.</dd>
+      <dt>Recuperado</dt><dd>atraso de partida menos atraso de chegada. Positivo = ganhou tempo no ar.</dd>
+      <dt>Distância</dt><dd>Haversine entre as coordenadas dos dois aeródromos. Nula quando um deles não é público brasileiro.</dd>
+    </dl>
+  </footer>
+</div>
+
+<div id="tip" hidden></div>
+
+<script>
+/* ==========================================================================
+   DADOS — agregados da camada gold (mizukiairflows.gold.obt_voos)
+   ========================================================================== */
+const GERAL = {
+  total: 1014705, realizados: 985560, cancelados: 29145, pctCancel: 2.87,
+  otpP: 79.9, otpC: 80.3, severo: 37049, atrP: 7.8, atrC: 4.3, recup: 3.6,
+  duracao: 159.7, empresas: 118, aerodromos: 374, rotas: 3104,
+  inicio: "2025-08-01", fim: "2026-08-01",
+  semData: 30800, realizadosComData: 954760, otpComData: 82.5
+};
+
+const MES_RAW = `2025-08|ago/25|82835|81038|1797|2.17|85.9|5.7
+2025-09|set/25|80150|78305|1845|2.30|85.7|6.1
+2025-10|out/25|82616|80580|2036|2.46|83.5|7.5
+2025-11|nov/25|78320|76467|1853|2.37|81.9|8.0
+2025-12|dez/25|85452|82028|3424|4.01|72.0|15.6
+2026-01|jan/26|88965|86142|2823|3.17|81.5|8.6
+2026-02|fev/26|77136|74760|2376|3.08|82.3|8.2
+2026-03|mar/26|84645|82024|2621|3.10|85.0|6.4
+2026-04|abr/26|78134|75773|2361|3.02|82.4|7.4
+2026-05|mai/26|79878|77491|2387|2.99|85.0|5.2
+2026-06|jun/26|78806|75917|2889|3.67|81.4|8.0
+2026-07|jul/26|86951|84222|2729|3.14|83.2|7.1`;
+
+const EMP_RAW = `TAM|LATAM|TAM LINHAS AÉREAS S.A.|nacional|302082|4493|1.49|79.2|79.7|6.6|3.4|3.2|7875|745
+AZU|Azul|AZUL LINHAS AÉREAS BRASILEIRAS S/A|nacional|284141|4412|1.55|83.9|83.8|4.4|1.8|2.6|10212|1101
+GLO|GOL|GOL LINHAS AÉREAS S.A.|nacional|259304|2941|1.13|84.4|85.4|4.9|0.3|4.5|6484|851
+ACN|Azul Conecta|AZUL CONECTA LTDA.|nacional|14530|2085|14.35|73.6|73.9|5.4|2.1|3.2|519|399
+LAN|LATAM Chile|LATAM AIRLINES GROUP|estrangeira|13957|90|0.64|75.4|73.0|7.5|5.3|2.3|397|90
+TAP|TAP Portugal|TAP — TRANSPORTES AÉREOS PORTUGUESES S/A|estrangeira|10422|149|1.43|58.4|69.5|17.2|7.5|9.8|620|62
+CMP|Copa|COMPAÑIA PANAMEÑA DE AVIACIÓN (COPA AIRLINES)|estrangeira|9546|275|2.88|91.4|89.3|0.6|-2.8|3.4|128|24
+ARG|Aerolíneas Argentinas|AEROLÍNEAS ARGENTINAS S/A|estrangeira|9009|251|2.79|65.4|63.7|14.2|13.2|1.1|729|89
+SKU|SKY Chile|SKY AIRLINE S.A.|estrangeira|5679|624|10.99|78.8|79.9|7.9|-0.2|8.2|399|31
+AVA|Avianca|AEROVIAS DEL CONTINENTE AMERICANO S.A. AVIANCA|estrangeira|5415|100|1.85|77.3|75.6|10.2|6.1|4.1|228|32
+IBE|Iberia|IBERIA LÍNEAS AÉREAS DE ESPAÑA|estrangeira|5199|2839|54.61|53.0|68.9|19.3|1.4|17.9|254|19
+AAL|American|AMERICAN AIRLINES, INC.|estrangeira|4701|109|2.32|76.0|71.3|45.8|42.0|3.7|488|29
+JES|JetSmart Argentina|JETSMART AIRLINES S.A — ARGENTINA|estrangeira|4565|89|1.95|80.9|80.0|13.1|7.8|5.3|295|43
+LTG|ABSA Cargo|ABSA — AEROLINHAS BRASILEIRAS S.A.|nacional|4513|1041|23.07|13.5|12.9|64.7|68.0|-3.2|574|197
+LPE|LATAM Peru|LATAM AIRLINES PERU|estrangeira|4312|25|0.58|80.5|74.5|7.5|5.5|2.0|139|40
+JAT|JetSmart Chile|JETSMART AIRLINES SPA — CHILE|estrangeira|4205|85|2.02|75.8|74.4|17.9|14.7|3.2|222|36
+UAL|United|UNITED AIRLINES, INC|estrangeira|3726|69|1.85|71.1|70.1|28.5|22.4|6.1|364|33
+QTR|Qatar|QATAR AIRWAYS GROUP|estrangeira|3560|1462|41.07|66.3|65.6|22.1|17.5|4.7|209|83
+ETH|Ethiopian|ETHIOPIAN AIRLINES GROUP|estrangeira|3467|1562|45.05|30.4|36.1|52.4|44.2|8.2|438|32
+AFR|Air France|SOCIÉTÉ AIR FRANCE|estrangeira|3302|30|0.91|65.0|72.2|24.4|18.1|6.3|251|23
+FBZ|Flybondi|FB LÍNEAS AÉREAS S.A. (FLYBONDI)|estrangeira|3300|334|10.12|63.2|62.6|35.5|32.5|3.0|441|40
+THY|Turkish|TURKISH AIRLINES INC|estrangeira|3052|44|1.44|70.9|71.9|28.3|20.8|7.5|308|34
+DWI|Arajet|ARAJET S.A.|estrangeira|3026|2233|73.79|43.3|61.0|45.8|26.3|19.4|184|17
+LCO|LATAM Cargo Chile|LAN CARGO S.A.|estrangeira|3000|143|4.77|7.4|6.4|112.4|120.8|-8.3|462|156
+ITY|ITA Airways|ITALIA TRASPORTO AEREO S.P.A.|estrangeira|2698|604|22.39|70.6|72.7|13.4|3.1|10.3|139|10
+DAL|Delta|DELTA AIR LINES INC.|estrangeira|2630|65|2.47|79.1|75.4|15.1|10.8|4.3|178|18
+UAE|Emirates|EMIRATES|estrangeira|2552|245|9.60|74.9|73.3|18.4|15.9|2.5|139|36
+SID|Sideral|SIDERAL LINHAS AÉREAS LTDA.|nacional|2482|96|3.87|67.8|63.7|9.4|10.3|-1.0|158|236
+GTI|Atlas Air|ATLAS AIR INC|estrangeira|2319|382|16.47|19.5|18.1|418.3|425.6|-7.3|946|57
+BAW|British Airways|BRITISH AIRWAYS PLC|estrangeira|2197|30|1.37|87.4|85.9|6.7|1.5|5.2|53|13
+TPA|Tampa Cargo|TAMPA CARGO S.A.|estrangeira|2086|423|20.28|32.9|34.3|186.0|178.3|7.6|623|63
+TTL|Total Cargo|TOTAL LINHAS AÉREAS S.A.|nacional|1858|144|7.75|35.4|33.1|32.8|33.1|-0.3|273|76
+ACA|Air Canada|AIR CANADA|estrangeira|1850|50|2.70|63.1|67.1|21.4|16.5|5.0|240|8
+DLH|Lufthansa|DEUTSCHE LUFTHANSA A.G.|estrangeira|1745|276|15.82|70.9|69.6|19.0|14.5|4.6|50|15
+LAE|LANCO|LÍNEA AÉREA CARGUEIRA DE COLOMBIA — LANCO|estrangeira|1647|117|7.10|4.1|3.7|159.8|169.2|-9.5|171|120
+KLM|KLM|KLM CIA. REAL HOLANDESA DE AVIAÇÃO|estrangeira|1543|40|2.59|73.0|81.0|0.9|-14.9|15.8|60|8
+ARE|Aires|AIRES — AEROVÍAS DE INTEGRACIÓN REGIONAL S.A.|estrangeira|1496|12|0.80|72.6|65.8|13.6|12.3|1.4|64|14
+BOV|BoA|BOA BOLIVIANA DE AVIACIÓN|estrangeira|1468|262|17.85|50.7|45.4|26.6|31.1|-4.5|175|19
+LAP|TAM Mercosur|TRANSPORTE AÉREOS DEL MERCOSUR S.A.|estrangeira|1304|9|0.69|70.9|70.7|12.8|11.0|1.8|70|9
+CLX|Cargolux|CARGOLUX AIRLINES INTERNATIONAL S/A|estrangeira|1301|39|3.00|18.2|22.7|183.9|172.5|11.4|500|40
+ABJ|Abaeté|ATA — AEROTÁXI ABAETÉ LTDA.|nacional|1278|133|10.41|92.3|91.1|-12.8|-13.4|0.6|13|7
+AEA|Air Europa|AIR EUROPA LINEAS AEREAS S.A.|estrangeira|1122|43|3.83|71.2|76.4|16.5|3.9|12.6|47|16
+GEC|Lufthansa Cargo|LUFTHANSA CARGO AG|estrangeira|986|15|1.52|46.7|50.9|24.7|17.8|6.9|74|14
+SWR|Swiss|SWISS INTERNATIONAL AIR LINES LTD.|estrangeira|960|29|3.02|77.6|77.9|8.5|2.1|6.4|15|8
+DAE|DHL Aero Expreso|DHL AERO EXPRESO|estrangeira|837|32|3.82|72.0|69.6|-2.9|-11.0|8.1|32|8
+UPS|UPS|UPS — UNITED PARCEL SERVICE CO.|estrangeira|816|16|1.96|82.1|73.1|7.5|11.6|-4.1|34|7
+MWM|Modern Cargo|MODERN TRANSPORTE AEREO DE CARGA S.A|nacional|803|32|3.99|61.2|59.7|6.7|7.6|-0.9|23|60
+SKX|SKY Peru|SKY AIRLINE PERU S.A.C.|estrangeira|788|38|4.82|82.5|88.4|4.2|-13.7|17.9|22|4
+AMX|Aeroméxico|AEROVÍAS DE MÉXICO S.A. DE C.V.|estrangeira|737|7|0.95|79.5|66.3|12.0|12.6|-0.6|44|6
+KAL|Korean Air|KOREAN AIR LINES CO. LTD.|estrangeira|728|0|0.00|76.5|74.9|16.3|13.4|2.8|58|7
+CCA|Air China|AIR CHINA|estrangeira|662|13|1.96|41.1|72.1|-25.1|-50.1|24.9|69|4
+BPC|Braspress|BRASPRESS AIR CARGO TRANSPORTES AÉREOS|nacional|635|59|9.29|79.2|79.0|-10.5|-18.1|7.6|9|10
+FDX|FedEx|FEDEX — FEDERAL EXPRESS CORPORATION|estrangeira|524|8|1.53|77.7|67.1|6.6|9.3|-2.8|24|10`;
+
+/* pares de rota nos dois sentidos, ordenados por volume do par */
+const ASSIM_RAW = `SBRJ|Santos Dumont|365.7|89.5|84.2|18609|18590
+SBBR|Brasília|872.4|88.3|78.5|8321|8294
+SBCF|Confins|524.4|84.5|78.6|8143|8122
+SBPA|Porto Alegre|837.8|87.3|80.4|7955|7943
+SBCT|Curitiba|331.4|85.9|81.4|6828|6803
+SBPA|Porto Alegre → Guarulhos|865.6|82.9|75.3|6563|6562
+SBRF|Recife|2100.9|80.5|73.7|6094|6078
+SBSV|Salvador|1480.4|88.0|77.3|5390|5384
+SBCF|Confins → Guarulhos|496.5|78.2|71.0|5040|4964
+SBCT|Curitiba → Guarulhos|359.4|80.9|71.9|4979|4948
+SBGL|Galeão|336.8|78.2|70.8|4947|4816
+SBFL|Florianópolis|488.2|85.9|78.2|4699|4693
+SBBR|Brasília → Guarulhos|854.6|81.5|67.6|4676|4651
+SBSV|Salvador → Guarulhos|1452.2|80.1|67.6|4552|4789
+SBFZ|Fortaleza|2346.7|81.3|62.4|4249|3924
+SBMO|Maceió|1920.0|88.0|72.6|3295|3302
+SBEG|Manaus|2697.3|72.2|58.2|3070|2887`;
+
+const ROTAS_RAW = `SBRJ|SBSP|Santos Dumont|Congonhas|365.7|18609|745|89.5|65.7
+SBSP|SBRJ|Congonhas|Santos Dumont|365.7|18590|715|84.2|57.5
+SBBR|SBSP|Brasília|Congonhas|872.4|8321|125|88.3|104.0
+SBSP|SBBR|Congonhas|Brasília|872.4|8294|77|78.5|103.4
+SBCF|SBSP|Confins|Congonhas|524.4|8143|159|84.5|81.7
+SBSP|SBCF|Congonhas|Confins|524.4|8122|133|78.6|73.1
+SBPA|SBSP|Porto Alegre|Congonhas|837.8|7955|183|87.3|94.0
+SBSP|SBPA|Congonhas|Porto Alegre|837.8|7943|127|80.4|98.3
+SBCT|SBSP|Curitiba|Congonhas|331.4|6828|161|85.9|62.7
+SBSP|SBCT|Congonhas|Curitiba|331.4|6803|138|81.4|57.7
+SBPA|SBGR|Porto Alegre|Guarulhos|865.6|6563|89|82.9|105.6
+SBGR|SBPA|Guarulhos|Porto Alegre|865.6|6562|73|75.3|102.2
+SBRF|SBGR|Recife|Guarulhos|2100.9|6094|73|80.5|197.0
+SBGR|SBRF|Guarulhos|Recife|2100.9|6078|67|73.7|180.2
+SBSV|SBSP|Salvador|Congonhas|1480.4|5390|70|88.0|153.1
+SBSP|SBSV|Congonhas|Salvador|1480.4|5384|38|77.3|138.2
+SBGR|SCEL|Guarulhos|Santiago|0|5362|736|62.0|253.5
+SBCF|SBGR|Confins|Guarulhos|496.5|5040|39|78.2|77.2
+SBCT|SBGR|Curitiba|Guarulhos|359.4|4979|80|80.9|69.9
+SBGR|SBCF|Guarulhos|Confins|496.5|4964|47|71.0|70.1`;
+
+const AERO_RAW = `SBGR|Guarulhos|Guarulhos|SP|-23.4356|-46.4731|147976|3293|71.0
+SBSP|Congonhas|São Paulo|SP|-23.6261|-46.6564|95707|1716|79.8
+SBGL|Galeão|Rio de Janeiro|RJ|-22.8100|-43.2506|62644|955|82.7
+SBBR|Brasília|Brasília|DF|-15.8711|-47.9186|60723|558|87.2
+SBKP|Viracopos|Campinas|SP|-23.0069|-47.1344|60387|1525|77.7
+SBCF|Confins|Confins|MG|-19.6244|-43.9719|56874|861|83.2
+SBRF|Recife|Recife|PE|-8.1264|-34.9228|37399|622|84.6
+SBSV|Salvador|Salvador|BA|-12.9086|-38.3225|30665|425|86.2
+SBPA|Porto Alegre|Porto Alegre|RS|-29.9947|-51.1711|30513|498|84.8
+SBRJ|Santos Dumont|Rio de Janeiro|RJ|-22.9100|-43.1625|29565|906|88.6
+SBCT|Afonso Pena|Curitiba|PR|-25.5317|-49.1761|26589|635|82.7
+SBFZ|Pinto Martins|Fortaleza|CE|-3.7758|-38.5322|20640|223|85.0
+SBFL|Hercílio Luz|Florianópolis|SC|-27.6703|-48.5525|19247|553|80.2
+SBBE|Val de Cans|Belém|PA|-1.3847|-48.4789|16344|330|84.6
+SBEG|Eduardo Gomes|Manaus|AM|-3.0411|-60.0506|16195|666|78.8
+SBVT|Eurico de Aguiar Salles|Vitória|ES|-20.2581|-40.2864|13695|201|85.2
+SBGO|Santa Genoveva|Goiânia|GO|-16.6325|-49.2211|13636|181|85.6
+SBMO|Zumbi dos Palmares|Maceió|AL|-9.5108|-35.7917|10640|109|87.0
+SBCY|Marechal Rondon|Cuiabá|MT|-15.6500|-56.1175|9883|169|85.2
+SBPS|Porto Seguro|Porto Seguro|BA|-16.4381|-39.0778|9664|192|82.9
+SBSG|Aluízio Alves|Natal|RN|-5.7689|-35.3664|9143|85|85.8
+SBFI|Cataratas|Foz do Iguaçu|PR|-25.6003|-54.4850|8620|111|81.6
+SBNF|Victor Konder|Navegantes|SC|-26.8786|-48.6508|8437|197|84.8
+SBSL|Cunha Machado|São Luís|MA|-2.5869|-44.2361|6806|96|85.8
+SBJP|Castro Pinto|João Pessoa|PB|-7.1483|-34.9503|6680|65|84.6
+SBUL|César Bombonato|Uberlândia|MG|-18.8836|-48.2253|5687|99|81.6
+SBAR|Santa Maria|Aracaju|SE|-10.9853|-37.0733|5170|47|84.3
+SBCG|Ueze Elias Zahran|Campo Grande|MS|-20.4694|-54.6703|5007|49|83.1
+SBSR|Eribelto Manoel Reino|São José do Rio Preto|SP|-20.8172|-49.4069|4555|106|84.3
+SBTE|Petrônio Portella|Teresina|PI|-5.0606|-42.8244|4364|34|88.6
+SBRP|Leite Lopes|Ribeirão Preto|SP|-21.1364|-47.7767|4261|93|84.4
+SBMG|Sílvio Name Júnior|Maringá|PR|-23.4764|-52.0178|3694|72|85.4
+SBLO|José Richa|Londrina|PR|-23.3303|-51.1367|3099|54|84.3
+SBPJ|Lysias Rodrigues|Palmas|TO|-10.2900|-48.3578|2903|29|89.8
+SBCH|Serafin Enoss Bertaso|Chapecó|SC|-27.1339|-52.6589|2786|86|83.2
+SBIL|Jorge Amado|Ilhéus|BA|-14.8150|-39.0333|2650|37|83.7
+SBMQ|Alberto Alcolumbre|Macapá|AP|0.0506|-51.0722|2421|22|85.4
+SBJV|Lauro Carneiro de Loyola|Joinville|SC|-26.2231|-48.7978|2389|42|85.6
+SBSN|Wilson Fonseca|Santarém|PA|-2.4247|-54.7858|2189|34|90.0
+SBJU|Orlando Bezerra|Juazeiro do Norte|CE|-7.2192|-39.2694|2183|17|86.0
+SBPV|Jorge Teixeira|Porto Velho|RO|-8.7136|-63.9028|2161|53|79.1
+SBCA|Adalberto Mendes|Cascavel|PR|-25.0022|-53.5019|2074|85|79.8
+SBPL|Nilo Coelho|Petrolina|PE|-9.3675|-40.5636|1986|9|90.1
+SBMK|Mário Ribeiro|Montes Claros|MG|-16.7061|-43.8219|1963|23|85.5
+SBVC|Glauber Rocha|Vitória da Conquista|BA|-14.9078|-40.9147|1812|16|86.2
+SBSI|João Batista Figueiredo|Sinop|MT|-11.8850|-55.5861|1794|10|86.7
+SBFN|Fernando de Noronha|Fernando de Noronha|PE|-3.8547|-32.4283|1663|39|83.6
+SBMA|João Corrêa da Rocha|Marabá|PA|-5.3681|-49.1381|1645|29|92.6
+SBRB|Plácido de Castro|Rio Branco|AC|-9.8683|-67.8981|1552|15|86.5
+SBIZ|Prefeito Renato Moreira|(sem município)|—|-5.5306|-47.4583|1458|23|89.2
+SBCJ|Carajás|Parauapebas|PA|-6.1178|-50.0033|1352|48|85.0
+SBBV|Atlas Brasil Cantanhede|Boa Vista|RR|2.8414|-60.6922|1277|9|87.5
+SBIP|Usiminas|Ipatinga|MG|-19.4706|-42.4881|1242|41|83.1
+SBDN|Presidente Prudente|Presidente Prudente|SP|-22.1750|-51.4244|1236|19|86.2
+SBJR|Jacarepaguá|Rio de Janeiro|RJ|-22.9875|-43.3700|1198|249|73.3
+SBCX|Hugo Cantergiani|Caxias do Sul|RS|-29.1981|-51.1867|1086|65|89.4
+SBKG|João Suassuna|Campina Grande|PB|-7.2692|-35.8950|996|23|87.7
+SBPF|Lauro Kurtz|Passo Fundo|RS|-28.2442|-52.3283|942|15|83.3`;
+
+const CORTES = {
+  periodo: [
+    { l: "Madrugada", sub: "00h–06h", voos: 111999, canc: 4225, otp: 87.7, atr: 5.8 },
+    { l: "Manhã",     sub: "06h–12h", voos: 305970, canc: 7764, otp: 86.3, atr: 5.9 },
+    { l: "Tarde",     sub: "12h–18h", voos: 319033, canc: 8529, otp: 81.1, atr: 8.3 },
+    { l: "Noite",     sub: "18h–24h", voos: 246903, canc: 8627, otp: 77.2, atr: 10.5 }
+  ],
+  dia: [
+    { l: "Seg", voos: 143735, canc: 4150, otp: 82.8, atr: 7.1 },
+    { l: "Ter", voos: 142307, canc: 4385, otp: 82.9, atr: 7.5 },
+    { l: "Qua", voos: 142980, canc: 4439, otp: 81.8, atr: 8.4 },
+    { l: "Qui", voos: 143330, canc: 4454, otp: 80.8, atr: 9.6 },
+    { l: "Sex", voos: 146899, canc: 4611, otp: 80.5, atr: 8.2 },
+    { l: "Sáb", voos: 129675, canc: 3652, otp: 84.5, atr: 6.6 },
+    { l: "Dom", voos: 134979, canc: 3454, otp: 84.2, atr: 7.3 }
+  ],
+  estacao: [
+    { l: "Verão",     voos: 251553, canc: 8623, otp: 78.6, atr: 10.8 },
+    { l: "Outono",    voos: 242657, canc: 7369, otp: 84.1, atr: 6.3 },
+    { l: "Inverno",   voos: 248609, canc: 7419, otp: 83.5, atr: 6.9 },
+    { l: "Primavera", voos: 241086, canc: 5734, otp: 83.7, atr: 7.2 }
+  ],
+  faixa: [
+    { l: "Curta", sub: "< 500 km",       voos: 244638, canc: 6721,  otp: 80.9, atr: 5.2 },
+    { l: "Média", sub: "500–1.500 km",   voos: 384381, canc: 5209,  otp: 83.4, atr: 5.0 },
+    { l: "Longa", sub: "1.500–3.000 km", voos: 190459, canc: 2338,  otp: 81.3, atr: 6.1 },
+    { l: "Extra-longa", sub: "> 3.000 km", voos: 240,  canc: 0,     otp: 65.4, atr: 9.4 },
+    { l: "Sem coordenadas", sub: "aeroporto não cadastrado", voos: 194987, canc: 14877, otp: 69.8, atr: 19.6 }
+  ],
+  tipo: [
+    { l: "Nacional",          voos: 805235, canc: 13164, otp: 82.6, atr: 5.1 },
+    { l: "Internacional",     voos: 173155, canc: 10446, otp: 73.1, atr: 13.3 },
+    { l: "Geral / privado",   voos: 22313,  canc: 4603,  otp: 30.4, atr: 124.8 },
+    { l: "Cargueiro / charter", voos: 14002, canc: 932,  otp: 66.6, atr: 12.9 }
+  ],
+  origem: [
+    { l: "Empresa nacional",    voos: 872348, canc: 15513, otp: 81.8, atr: 5.4 },
+    { l: "Empresa estrangeira", voos: 142188, canc: 13610, otp: 67.2, atr: 25.0 }
+  ]
+};
+
+const EXTREMOS = {
+  maisLonga:  { par: "SBBV → SBPA", de: "Boa Vista", para: "Porto Alegre", km: 3788.9, voos: 1 },
+  maisCurta:  { par: "SBGL → SBRJ", de: "Galeão", para: "Santos Dumont", km: 14.3, voos: 51 },
+  mesmaOrigem: { par: "SBGR → SBGR", voos: 568 }
+};
+
+/* ---------- parsing ---------- */
+const split = s => s.trim().split("\n").map(r => r.split("|"));
+const MESES = split(MES_RAW).map(r => ({
+  ym: r[0], l: r[1], voos: +r[2], real: +r[3], canc: +r[4],
+  pctC: +r[5], otp: +r[6], atr: +r[7]
+}));
+const EMPRESAS = split(EMP_RAW).map(r => ({
+  icao: r[0], curto: r[1], razao: r[2], origem: r[3], voos: +r[4], canc: +r[5],
+  pctC: +r[6], otpP: +r[7], otpC: +r[8], atrP: +r[9], atrC: +r[10],
+  recup: +r[11], severo: +r[12], rotas: +r[13]
+}));
+const ASSIM = split(ASSIM_RAW).map(r => ({
+  icao: r[0], l: r[1], km: +r[2], paraSP: +r[3], deSP: +r[4], voosIda: +r[5], voosVolta: +r[6]
+}));
+const ROTAS = split(ROTAS_RAW).map(r => ({
+  o: r[0], d: r[1], co: r[2], cd: r[3], km: +r[4], voos: +r[5],
+  canc: +r[6], otp: +r[7], dur: +r[8]
+}));
+const AERO = split(AERO_RAW).map(r => ({
+  icao: r[0], nome: r[1], cidade: r[2], uf: r[3], lat: +r[4], lon: +r[5],
+  voos: +r[6], canc: +r[7], otp: +r[8]
+}));
+
+/* ---------- formatadores ---------- */
+const nf = n => n.toLocaleString("pt-BR");
+const pf = (n, d = 1) => n.toLocaleString("pt-BR", { minimumFractionDigits: d, maximumFractionDigits: d });
+const pct = n => pf(n, 1) + "%";
+const min = n => pf(n, 1) + " min";
+const km = n => nf(Math.round(n)) + " km";
+
+/* ==========================================================================
+   TOOLTIP
+   ========================================================================== */
+const tip = document.getElementById("tip");
+function showTip(ev, title, rows) {
+  tip.innerHTML = '<div class="tt"></div>' +
+    rows.map(() => '<div class="tr"><span></span><b></b></div>').join("");
+  tip.querySelector(".tt").textContent = title;
+  tip.querySelectorAll(".tr").forEach((el, i) => {
+    el.querySelector("span").textContent = rows[i][0];
+    el.querySelector("b").textContent = rows[i][1];
+  });
+  tip.hidden = false;
+  moveTip(ev);
+}
+function moveTip(ev) {
+  const r = tip.getBoundingClientRect();
+  let x = ev.clientX + 14, y = ev.clientY + 14;
+  if (x + r.width > innerWidth - 8) x = ev.clientX - r.width - 14;
+  if (y + r.height > innerHeight - 8) y = ev.clientY - r.height - 14;
+  tip.style.left = Math.max(8, x) + "px";
+  tip.style.top = Math.max(8, y) + "px";
+}
+function hideTip() { tip.hidden = true; }
+function hoverable(el, title, rows) {
+  el.addEventListener("pointerenter", e => showTip(e, title, rows));
+  el.addEventListener("pointermove", moveTip);
+  el.addEventListener("pointerleave", hideTip);
+}
+
+/* ==========================================================================
+   HELPERS SVG
+   ========================================================================== */
+const SVGNS = "http://www.w3.org/2000/svg";
+function svgEl(tag, attrs) {
+  const e = document.createElementNS(SVGNS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  return e;
+}
+function mount(id, w, h) {
+  const host = document.getElementById(id);
+  host.textContent = "";
+  const s = svgEl("svg", { viewBox: `0 0 ${w} ${h}`, role: "img" });
+  host.appendChild(s);
+  return s;
+}
+function txt(parent, x, y, s, o = {}) {
+  const t = svgEl("text", {
+    x, y,
+    "font-family": o.mono ? "var(--mono)" : "var(--body)",
+    "font-size": o.size || 10.5,
+    "font-weight": o.weight || 400,
+    fill: o.fill || "var(--ink-muted)",
+    "text-anchor": o.anchor || "start",
+    "dominant-baseline": o.base || "auto"
+  });
+  t.textContent = s;
+  parent.appendChild(t);
+  return t;
+}
+
+/* ==========================================================================
+   1. VOLUME MENSAL — barras empilhadas (realizado / cancelado)
+   ========================================================================== */
+(function () {
+  const W = 500, H = 250, m = { t: 14, r: 8, b: 34, l: 42 };
+  const s = mount("chMesVol", W, H);
+  const iw = W - m.l - m.r, ih = H - m.t - m.b;
+  const max = 92000;
+  const y = v => m.t + ih - (v / max) * ih;
+  const bw = iw / MESES.length;
+
+  [0, 25000, 50000, 75000].forEach(v => {
+    s.appendChild(svgEl("line", { x1: m.l, x2: W - m.r, y1: y(v), y2: y(v),
+      stroke: "var(--grid)", "stroke-width": 1 }));
+    txt(s, m.l - 7, y(v) + 3, v === 0 ? "0" : (v / 1000) + "k",
+      { anchor: "end", mono: true, size: 9.5 });
+  });
+
+  MESES.forEach((d, i) => {
+    const x = m.l + i * bw + bw * 0.16, w = bw * 0.68;
+    const hR = ih - (y(d.real) - m.t), hC = (y(d.real) - y(d.voos));
+    const g = svgEl("g", { style: "cursor:default" });
+    g.appendChild(svgEl("rect", { x, y: y(d.voos), width: w, height: Math.max(1.5, hC - 2),
+      fill: "var(--s2)", rx: 1.5 }));
+    g.appendChild(svgEl("rect", { x, y: y(d.real), width: w, height: Math.max(0, hR),
+      fill: "var(--s1)", rx: 2 }));
+    g.appendChild(svgEl("rect", { x, y: m.t, width: w, height: ih, fill: "transparent" }));
+    hoverable(g, d.l, [
+      ["Voos", nf(d.voos)],
+      ["Realizados", nf(d.real)],
+      ["Cancelados", nf(d.canc) + " (" + pct(d.pctC) + ")"],
+      ["OTP partida", pct(d.otp)]
+    ]);
+    s.appendChild(g);
+    if (i % 2 === 0 || i === MESES.length - 1)
+      txt(s, x + w / 2, H - 14, d.l, { anchor: "middle", mono: true, size: 9.5 });
+  });
+  s.appendChild(svgEl("line", { x1: m.l, x2: W - m.r, y1: y(0), y2: y(0),
+    stroke: "var(--axis)", "stroke-width": 1 }));
+  txt(s, m.l, m.t - 2, "dez/25 concentra 3.424 cancelamentos", { size: 10, fill: "var(--ink-2)" });
+})();
+
+/* ==========================================================================
+   2. OTP MENSAL — linha com área, crosshair
+   ========================================================================== */
+(function () {
+  const W = 500, H = 250, m = { t: 20, r: 40, b: 34, l: 42 };
+  const s = mount("chMesOtp", W, H);
+  const iw = W - m.l - m.r, ih = H - m.t - m.b;
+  const lo = 68, hi = 88;
+  const x = i => m.l + (i / (MESES.length - 1)) * iw;
+  const y = v => m.t + ih - ((v - lo) / (hi - lo)) * ih;
+
+  [70, 75, 80, 85].forEach(v => {
+    s.appendChild(svgEl("line", { x1: m.l, x2: W - m.r, y1: y(v), y2: y(v),
+      stroke: "var(--grid)", "stroke-width": 1 }));
+    txt(s, m.l - 7, y(v) + 3, v + "%", { anchor: "end", mono: true, size: 9.5 });
+  });
+
+  /* média dos 12 meses, ponderada por realizados */
+  const media = 82.5;
+  s.appendChild(svgEl("line", { x1: m.l, x2: W - m.r, y1: y(media), y2: y(media),
+    stroke: "var(--ink-muted)", "stroke-width": 1, "stroke-dasharray": "3 3" }));
+  txt(s, W - m.r + 4, y(media) + 3, "82,5%", { mono: true, size: 9.5, fill: "var(--ink-2)" });
+
+  const pts = MESES.map((d, i) => [x(i), y(d.otp)]);
+  s.appendChild(svgEl("path", {
+    d: `M${m.l},${y(lo)} ` + pts.map(p => `L${p[0]},${p[1]}`).join(" ") + ` L${x(MESES.length - 1)},${y(lo)} Z`,
+    fill: "var(--s1-wash)", stroke: "none"
+  }));
+  s.appendChild(svgEl("path", {
+    d: "M" + pts.map(p => p.join(",")).join(" L"),
+    fill: "none", stroke: "var(--s1)", "stroke-width": 2, "stroke-linejoin": "round"
+  }));
+
+  MESES.forEach((d, i) => {
+    const isDec = d.ym === "2025-12", isLast = i === MESES.length - 1;
+    s.appendChild(svgEl("circle", {
+      cx: x(i), cy: y(d.otp), r: isDec || isLast ? 5 : 3.2,
+      fill: isDec ? "var(--critical)" : "var(--s1)",
+      stroke: "var(--surface)", "stroke-width": 2
+    }));
+    if (i % 2 === 0 || isLast)
+      txt(s, x(i), H - 14, d.l, { anchor: "middle", mono: true, size: 9.5 });
+  });
+  const dec = MESES.findIndex(d => d.ym === "2025-12");
+  txt(s, x(dec), y(MESES[dec].otp) + 17, "72,0%",
+    { anchor: "middle", mono: true, size: 10.5, weight: 500, fill: "var(--critical)" });
+  txt(s, x(MESES.length - 1) + 6, y(MESES[MESES.length - 1].otp) + 3, "83,2%",
+    { mono: true, size: 10.5, weight: 500, fill: "var(--s1)" });
+
+  /* crosshair */
+  const cross = svgEl("line", { y1: m.t, y2: m.t + ih, stroke: "var(--axis)",
+    "stroke-width": 1, "stroke-dasharray": "2 2", opacity: 0 });
+  s.appendChild(cross);
+  const hit = svgEl("rect", { x: m.l, y: m.t, width: iw, height: ih, fill: "transparent" });
+  s.appendChild(hit);
+  hit.addEventListener("pointermove", ev => {
+    const bb = s.getBoundingClientRect();
+    const rel = ((ev.clientX - bb.left) / bb.width) * W;
+    let i = Math.round(((rel - m.l) / iw) * (MESES.length - 1));
+    i = Math.max(0, Math.min(MESES.length - 1, i));
+    cross.setAttribute("x1", x(i)); cross.setAttribute("x2", x(i));
+    cross.setAttribute("opacity", 1);
+    const d = MESES[i];
+    showTip(ev, d.l, [
+      ["OTP partida", pct(d.otp)],
+      ["Atraso médio", min(d.atr)],
+      ["Realizados", nf(d.real)],
+      ["Cancelamento", pct(d.pctC)]
+    ]);
+  });
+  hit.addEventListener("pointerleave", () => { cross.setAttribute("opacity", 0); hideTip(); });
+})();
+
+/* ==========================================================================
+   3. ASSIMETRIA SÃO PAULO — dumbbell
+   ========================================================================== */
+(function () {
+  const rowH = 22, m = { t: 26, r: 46, b: 26, l: 132 };
+  const W = 640, H = m.t + ASSIM.length * rowH + m.b;
+  const s = mount("chAssim", W, H);
+  const iw = W - m.l - m.r;
+  const lo = 55, hi = 92;
+  const x = v => m.l + ((v - lo) / (hi - lo)) * iw;
+
+  [60, 70, 80, 90].forEach(v => {
+    s.appendChild(svgEl("line", { x1: x(v), x2: x(v), y1: m.t - 8, y2: H - m.b + 2,
+      stroke: "var(--grid)", "stroke-width": 1 }));
+    txt(s, x(v), m.t - 12, v + "%", { anchor: "middle", mono: true, size: 9.5 });
+  });
+
+  ASSIM.forEach((d, i) => {
+    const yy = m.t + i * rowH + rowH / 2;
+    const g = svgEl("g", {});
+    g.appendChild(svgEl("line", { x1: x(d.deSP), x2: x(d.paraSP), y1: yy, y2: yy,
+      stroke: "var(--axis)", "stroke-width": 2, "stroke-linecap": "round" }));
+    g.appendChild(svgEl("circle", { cx: x(d.deSP), cy: yy, r: 4.5, fill: "var(--s2)",
+      stroke: "var(--surface)", "stroke-width": 1.5 }));
+    g.appendChild(svgEl("circle", { cx: x(d.paraSP), cy: yy, r: 4.5, fill: "var(--s1)",
+      stroke: "var(--surface)", "stroke-width": 1.5 }));
+    g.appendChild(svgEl("rect", { x: 0, y: yy - rowH / 2, width: W, height: rowH, fill: "transparent" }));
+    const delta = (d.deSP - d.paraSP).toFixed(1).replace(".", ",");
+    hoverable(g, d.l, [
+      ["Chegando em SP", pct(d.paraSP)],
+      ["Saindo de SP", pct(d.deSP)],
+      ["Diferença", delta + " p.p."],
+      ["Distância", d.km ? km(d.km) : "—"],
+      ["Voos (ida + volta)", nf(d.voosIda + d.voosVolta)]
+    ]);
+    s.appendChild(g);
+    txt(s, m.l - 10, yy + 3.5, d.l, { anchor: "end", size: 11, fill: "var(--ink-2)" });
+    txt(s, W - m.r + 6, yy + 3.5, delta, { mono: true, size: 10, fill: "var(--s2)" });
+  });
+  txt(s, W - m.r + 6, m.t - 12, "Δ p.p.", { mono: true, size: 9.5 });
+})();
+
+/* ==========================================================================
+   4. VOLUME POR EMPRESA — barras horizontais
+   ========================================================================== */
+(function () {
+  const top = EMPRESAS.slice(0, 12);
+  const rowH = 23, m = { t: 8, r: 58, b: 22, l: 112 };
+  const W = 500, H = m.t + top.length * rowH + m.b;
+  const s = mount("chEmpVol", W, H);
+  const iw = W - m.l - m.r;
+  const max = top[0].voos;
+  const x = v => (v / max) * iw;
+
+  top.forEach((d, i) => {
+    const yy = m.t + i * rowH;
+    const g = svgEl("g", {});
+    g.appendChild(svgEl("rect", { x: m.l, y: yy + 4, width: Math.max(2, x(d.voos)),
+      height: rowH - 10, fill: "var(--s1)", rx: 2 }));
+    g.appendChild(svgEl("rect", { x: 0, y: yy, width: W, height: rowH, fill: "transparent" }));
+    hoverable(g, d.curto + " · " + d.icao, [
+      ["Razão social", d.razao.length > 34 ? d.razao.slice(0, 33) + "…" : d.razao],
+      ["Voos", nf(d.voos)],
+      ["Participação", pct(d.voos / GERAL.total * 100)],
+      ["OTP partida", pct(d.otpP)],
+      ["Rotas", nf(d.rotas)]
+    ]);
+    s.appendChild(g);
+    txt(s, m.l - 8, yy + rowH / 2 + 3.5, d.curto, { anchor: "end", size: 11, fill: "var(--ink-2)" });
+    txt(s, m.l + x(d.voos) + 6, yy + rowH / 2 + 3.5, nf(d.voos),
+      { mono: true, size: 10, fill: "var(--ink-2)" });
+  });
+  txt(s, m.l, H - 6, "3 empresas = 83,4% dos voos", { size: 10, fill: "var(--ink-muted)" });
+})();
+
+/* ==========================================================================
+   5. OTP × VOLUME — scatter (uma série, log no eixo x)
+   ========================================================================== */
+(function () {
+  const pts = EMPRESAS.filter(d => d.voos >= 2000);
+  const W = 500, H = 270, m = { t: 16, r: 14, b: 40, l: 42 };
+  const s = mount("chEmpOtp", W, H);
+  const iw = W - m.l - m.r, ih = H - m.t - m.b;
+  const lo = 0, hi = 100;
+  const lx = v => Math.log10(v);
+  const x0 = lx(2000), x1 = lx(320000);
+  const x = v => m.l + ((lx(v) - x0) / (x1 - x0)) * iw;
+  const y = v => m.t + ih - ((v - lo) / (hi - lo)) * ih;
+
+  [0, 25, 50, 75, 100].forEach(v => {
+    s.appendChild(svgEl("line", { x1: m.l, x2: W - m.r, y1: y(v), y2: y(v),
+      stroke: "var(--grid)", "stroke-width": 1 }));
+    txt(s, m.l - 7, y(v) + 3, v + "%", { anchor: "end", mono: true, size: 9.5 });
+  });
+  [[2000, "2k"], [10000, "10k"], [100000, "100k"]].forEach(([v, l]) =>
+    txt(s, x(v), H - 20, l, { anchor: "middle", mono: true, size: 9.5 }));
+  txt(s, m.l + iw / 2, H - 5, "voos no período (escala log)",
+    { anchor: "middle", size: 10, fill: "var(--ink-muted)" });
+
+  s.appendChild(svgEl("line", { x1: m.l, x2: W - m.r, y1: y(79.9), y2: y(79.9),
+    stroke: "var(--ink-muted)", "stroke-width": 1, "stroke-dasharray": "3 3" }));
+
+  pts.forEach(d => {
+    const nac = d.origem === "nacional";
+    const c = svgEl("circle", {
+      cx: x(d.voos), cy: y(d.otpP), r: 5,
+      fill: nac ? "var(--s1)" : "var(--s2)",
+      "fill-opacity": .85, stroke: "var(--surface)", "stroke-width": 1.5
+    });
+    hoverable(c, d.curto + " · " + d.icao, [
+      ["OTP partida", pct(d.otpP)],
+      ["Voos", nf(d.voos)],
+      ["Cancelamento", pct(d.pctC)],
+      ["Atraso médio", min(d.atrP)],
+      ["Cadastro", d.origem]
+    ]);
+    s.appendChild(c);
+  });
+  /* rótulos diretos nos extremos */
+  const label = (icao, dx, dy, anchor) => {
+    const d = pts.find(p => p.icao === icao); if (!d) return;
+    txt(s, x(d.voos) + dx, y(d.otpP) + dy, d.curto,
+      { size: 10, anchor, fill: "var(--ink-2)" });
+  };
+  label("TAM", -8, 4, "end"); label("AZU", -8, 4, "end"); label("GLO", 8, 4, "start");
+  label("LCO", 9, 4, "start"); label("LTG", 9, 4, "start"); label("CMP", 9, 4, "start");
+  label("GTI", 9, 4, "start"); label("ETH", 9, 4, "start");
+  txt(s, W - m.r, y(79.9) - 6, "média 79,9%", { anchor: "end", mono: true, size: 9.5 });
+  const lg = document.createElement("div");
+  lg.className = "legend";
+  lg.innerHTML = '<span><i style="background:var(--s1)"></i>Cadastro nacional</span>' +
+    '<span><i style="background:var(--s2)"></i>Cadastro estrangeiro</span>';
+  document.getElementById("chEmpOtp").appendChild(lg);
+})();
+
+/* ==========================================================================
+   6. MAPA — projeção equirretangular
+   ========================================================================== */
+(function () {
+  const latMax = 4.5, latMin = -31.5, lonMin = -70, lonMax = -31;
+  const m = { t: 14, r: 14, b: 26, l: 30 };
+  const W = 560, iw = W - m.l - m.r;
+  const ih = iw * ((latMax - latMin) / (lonMax - lonMin)) * 0.97;
+  const H = ih + m.t + m.b;
+  const s = mount("chMapa", W, H);
+  const X = lon => m.l + ((lon - lonMin) / (lonMax - lonMin)) * iw;
+  const Y = lat => m.t + ((latMax - lat) / (latMax - latMin)) * ih;
+
+  for (let lon = -70; lon <= -31; lon += 10) {
+    s.appendChild(svgEl("line", { x1: X(lon), x2: X(lon), y1: m.t, y2: m.t + ih,
+      stroke: "var(--grid)", "stroke-width": 1 }));
+    txt(s, X(lon), H - 12, lon + "°", { anchor: "middle", mono: true, size: 9 });
+  }
+  for (let lat = 0; lat >= -30; lat -= 10) {
+    s.appendChild(svgEl("line", { x1: m.l, x2: W - m.r, y1: Y(lat), y2: Y(lat),
+      stroke: "var(--grid)", "stroke-width": 1 }));
+    txt(s, m.l - 5, Y(lat) + 3, lat + "°", { anchor: "end", mono: true, size: 9 });
+  }
+  /* equador em destaque */
+  s.appendChild(svgEl("line", { x1: m.l, x2: W - m.r, y1: Y(0), y2: Y(0),
+    stroke: "var(--axis)", "stroke-width": 1, "stroke-dasharray": "4 3" }));
+
+  const maxV = AERO[0].voos;
+  const R = v => 3 + Math.sqrt(v / maxV) * 23;
+  [...AERO].sort((a, b) => b.voos - a.voos).forEach(d => {
+    const c = svgEl("circle", {
+      cx: X(d.lon), cy: Y(d.lat), r: R(d.voos),
+      fill: "var(--s1)", "fill-opacity": .32,
+      stroke: "var(--s1)", "stroke-width": 1.5
+    });
+    hoverable(c, d.cidade + " · " + d.icao, [
+      ["Aeródromo", d.nome],
+      ["Partidas", nf(d.voos)],
+      ["OTP partida", pct(d.otp)],
+      ["Cancelados", nf(d.canc)],
+      ["Coordenadas", pf(d.lat, 2) + ", " + pf(d.lon, 2)]
+    ]);
+    s.appendChild(c);
+  });
+  /* rótulos nos seis maiores */
+  ["SBGR", "SBGL", "SBBR", "SBRF", "SBEG", "SBPA"].forEach(ic => {
+    const d = AERO.find(a => a.icao === ic);
+    txt(s, X(d.lon) + R(d.voos) + 4, Y(d.lat) + 3.5, d.cidade,
+      { size: 10, fill: "var(--ink-2)" });
+  });
+
+  const lg = document.getElementById("mapLegend");
+  lg.innerHTML =
+    '<span><i style="background:var(--s1);opacity:.5;width:7px;height:7px"></i>2.000 partidas</span>' +
+    '<span><i style="background:var(--s1);opacity:.5;width:13px;height:13px"></i>30.000</span>' +
+    '<span><i style="background:var(--s1);opacity:.5;width:20px;height:20px"></i>148.000</span>' +
+    '<span style="color:var(--ink-muted)">58 aeródromos com 900 partidas ou mais</span>';
+})();
+
+/* ==========================================================================
+   7. BARRAS DE CORTE (faixa, tipo, período, dia, estação)
+   ========================================================================== */
+function corteChart(id, rows, opt = {}) {
+  const rowH = opt.rowH || 30, m = { t: 8, r: 46, b: opt.foot ? 22 : 6, l: opt.l || 92 };
+  const W = 480, H = m.t + rows.length * rowH + m.b;
+  const s = mount(id, W, H);
+  const iw = W - m.l - m.r;
+  const x = v => (v / 100) * iw;
+
+  [50, 100].forEach(v => s.appendChild(svgEl("line", {
+    x1: m.l + x(v), x2: m.l + x(v), y1: m.t, y2: m.t + rows.length * rowH,
+    stroke: "var(--grid)", "stroke-width": 1
+  })));
+
+  rows.forEach((d, i) => {
+    const yy = m.t + i * rowH;
+    const low = d.otp < 50;
+    const g = svgEl("g", {});
+    g.appendChild(svgEl("rect", { x: m.l, y: yy + 6, width: Math.max(2, x(d.otp)),
+      height: rowH - 15, fill: low ? "var(--critical)" : "var(--s1)", rx: 2 }));
+    g.appendChild(svgEl("rect", { x: 0, y: yy, width: W, height: rowH, fill: "transparent" }));
+    hoverable(g, d.l + (d.sub ? " (" + d.sub + ")" : ""), [
+      ["OTP partida", pct(d.otp)],
+      ["Voos", nf(d.voos)],
+      ["Cancelados", nf(d.canc)],
+      ["Atraso médio", min(d.atr)]
+    ]);
+    s.appendChild(g);
+    txt(s, m.l - 8, yy + rowH / 2 + (d.sub ? -1 : 3.5), d.l,
+      { anchor: "end", size: 11.5, fill: "var(--ink)" });
+    if (d.sub) txt(s, m.l - 8, yy + rowH / 2 + 10, d.sub,
+      { anchor: "end", size: 9.5, mono: true, fill: "var(--ink-muted)" });
+    txt(s, m.l + x(d.otp) + 6, yy + rowH / 2 + 3.5, pct(d.otp),
+      { mono: true, size: 10.5, weight: 500, fill: low ? "var(--critical)" : "var(--ink-2)" });
+  });
+  if (opt.foot) txt(s, m.l, H - 5, opt.foot, { size: 10, fill: "var(--ink-muted)" });
+}
+corteChart("chFaixa", CORTES.faixa, { l: 118, foot: "194.987 voos sem distância: aeroporto estrangeiro" });
+corteChart("chTipo", CORTES.tipo, { l: 118, foot: "geral/privado: atraso médio de 124,8 min" });
+corteChart("chPeriodo", CORTES.periodo, { l: 74, rowH: 34 });
+corteChart("chDia", CORTES.dia, { l: 40, rowH: 26 });
+corteChart("chEstacao", CORTES.estacao, { l: 72, rowH: 34 });
+
+/* ==========================================================================
+   8. TABELAS
+   ========================================================================== */
+const OUTLIER = new Set(["GTI", "TPA", "CLX", "LAE", "LCO", "CCA", "AAL"]);
+function renderEmp(key = "voos", dir = -1) {
+  const tb = document.querySelector("#tabEmp tbody");
+  const rows = [...EMPRESAS].sort((a, b) => (a[key] - b[key]) * dir);
+  const maxV = Math.max(...EMPRESAS.map(d => d.voos));
+  tb.textContent = "";
+  for (const d of rows) {
+    const tr = document.createElement("tr");
+    const nome = document.createElement("td");
+    nome.className = "bar-cell";
+    nome.style.setProperty("--w", (d.voos / maxV * 100) + "%");
+    nome.innerHTML = '<span><span class="icao"></span><b></b></span>';
+    nome.querySelector(".icao").textContent = d.icao;
+    nome.querySelector("b").textContent = d.curto;
+    if (OUTLIER.has(d.icao)) {
+      const f = document.createElement("span");
+      f.className = "flag"; f.textContent = "horários suspeitos";
+      f.title = "Atraso médio incompatível com operação real — timestamps invertidos na fonte.";
+      nome.querySelector("span").append(" ", f);
+    }
+    tr.appendChild(nome);
+    [
+      nf(d.voos), pct(d.pctC), pct(d.otpP), pct(d.otpC),
+      min(d.atrP), min(d.recup), nf(d.rotas)
+    ].forEach(v => {
+      const td = document.createElement("td");
+      td.className = "num"; td.textContent = v; tr.appendChild(td);
+    });
+    tb.appendChild(tr);
+  }
+}
+renderEmp();
+document.querySelectorAll("#tabEmp th.sortable").forEach(th => {
+  th.addEventListener("click", () => {
+    const k = th.dataset.k;
+    const was = th.getAttribute("aria-sort");
+    document.querySelectorAll("#tabEmp th").forEach(o => o.removeAttribute("aria-sort"));
+    const dir = was === "descending" ? 1 : -1;
+    th.setAttribute("aria-sort", dir === -1 ? "descending" : "ascending");
+    renderEmp(k, dir);
+  });
+});
+
+(function () {
+  const tb = document.querySelector("#tabRotas tbody");
+  const maxV = ROTAS[0].voos;
+  for (const d of ROTAS) {
+    const tr = document.createElement("tr");
+    const c = document.createElement("td");
+    c.className = "bar-cell";
+    c.style.setProperty("--w", (d.voos / maxV * 100) + "%");
+    c.innerHTML = '<span><span class="icao"></span><b></b></span>';
+    c.querySelector(".icao").textContent = d.o + "→" + d.d;
+    c.querySelector("b").textContent = d.co + " → " + d.cd;
+    tr.appendChild(c);
+    [d.km ? km(d.km) : "—", nf(d.voos), pct(d.canc / d.voos * 100), pct(d.otp), min(d.dur)]
+      .forEach(v => {
+        const td = document.createElement("td");
+        td.className = "num"; td.textContent = v; tr.appendChild(td);
+      });
+    tb.appendChild(tr);
+  }
+})();
+
+/* ==========================================================================
+   9. AGENTE
+   ========================================================================== */
+const SUGESTOES = [
+  "Qual empresa recupera mais atraso no ar?",
+  "Compare a pontualidade de GOL, LATAM e Azul.",
+  "Por que dezembro é tão ruim?",
+  "Vale a pena voar de madrugada?",
+  "Quais rotas cancelam mais?",
+  "O que está errado nesses dados?"
+];
+
+function contexto() {
+  const L = [];
+  L.push("DADOS — Mizuki Airflows, agregados da camada Gold sobre o VRA da ANAC.");
+  L.push("Janela: 2025-08-01 a 2026-08-01 (12 meses).");
+  L.push("");
+  L.push("DEFINIÇÕES");
+  L.push("- OTP (pontualidade) = voos pontuais / voos REALIZADOS. Pontual = atraso de partida <= 15 min (padrão ANAC/IATA).");
+  L.push("- Atraso severo = atraso de partida > 60 min.");
+  L.push("- Recuperado = atraso de partida menos atraso de chegada. Positivo = ganhou tempo no ar.");
+  L.push("- Distância = Haversine entre coordenadas dos aeródromos; nula se um deles não é aeródromo público brasileiro.");
+  L.push("- p.p. = pontos percentuais.");
+  L.push("");
+  L.push("GERAL");
+  L.push(`voos=${GERAL.total}; realizados=${GERAL.realizados}; cancelados=${GERAL.cancelados} (${GERAL.pctCancel}%); ` +
+    `otp_partida=${GERAL.otpP}%; otp_chegada=${GERAL.otpC}%; atraso_severo=${GERAL.severo}; ` +
+    `atraso_medio_partida=${GERAL.atrP}min; atraso_medio_chegada=${GERAL.atrC}min; ` +
+    `recuperado_medio=${GERAL.recup}min; duracao_media=${GERAL.duracao}min; ` +
+    `empresas_operando=${GERAL.empresas}; aerodromos_origem=${GERAL.aerodromos}; rotas=${GERAL.rotas}`);
+  L.push("");
+  L.push("PROBLEMAS DE QUALIDADE (importante — cite quando for relevante)");
+  L.push(`1. ${GERAL.semData} voos (3,0%) não têm data/hora de partida prevista. Sem horário previsto o atraso não é calculável, então nenhum deles conta como pontual, mas todos entram no denominador. Por isso o OTP geral (79,9%) é menor que o de TODOS os 12 meses individuais (81,4% a 85,9%). Sobre os ${GERAL.realizadosComData} realizados com horário previsto, o OTP é ${GERAL.otpComData}%. Esses voos também ficam fora de qualquer corte por mês, período do dia, dia da semana ou estação.`);
+  L.push("2. Os 29.145 cancelamentos trazem todos 'N/A' em codigo_justificativa — um único valor na coluna inteira. Não há como responder por que um voo foi cancelado.");
+  L.push("3. Nomes de empresas estrangeiras vêm com encoding corrompido na fonte (UTF-8 lido como ISO-8859-1). Nesta página estão corrigidos.");
+  L.push("4. Há timestamps invertidos na fonte. Empresas com atraso médio absurdo (Atlas Air 418min, Tampa Cargo 186min, Cargolux 184min, LANCO 160min, LATAM Cargo 112min, American 46min, Air China -25min) não devem ser lidas como operação real. Também existem rotas com origem igual ao destino (568 voos só em Guarulhos, distância 0 km).");
+  L.push("");
+  L.push("MÊS | voos | realizados | cancelados | %cancel | otp_partida% | atraso_medio_min");
+  MESES.forEach(d => L.push(`${d.ym}|${d.voos}|${d.real}|${d.canc}|${d.pctC}|${d.otp}|${d.atr}`));
+  L.push("");
+  L.push("EMPRESAS (53 com >=500 voos) | icao | nome | cadastro | voos | cancelados | %cancel | otp_partida% | otp_chegada% | atraso_partida_min | atraso_chegada_min | recuperado_min | atraso_severo | rotas");
+  EMPRESAS.forEach(d => L.push([d.icao, d.curto, d.origem, d.voos, d.canc, d.pctC, d.otpP,
+    d.otpC, d.atrP, d.atrC, d.recup, d.severo, d.rotas].join("|")));
+  L.push("");
+  L.push("ASSIMETRIA DE SENTIDO — mesma rota, dois sentidos. Em 17 de 17 pares mais movimentados, o voo que PARTE de São Paulo (Congonhas/Guarulhos) é menos pontual que o que CHEGA lá.");
+  L.push("aeroporto_par | otp_chegando_em_SP% | otp_saindo_de_SP% | delta_pp | km");
+  ASSIM.forEach(d => L.push(`${d.l}|${d.paraSP}|${d.deSP}|${(d.deSP - d.paraSP).toFixed(1)}|${d.km}`));
+  L.push("");
+  L.push("ROTAS mais movimentadas | origem | destino | km | voos | cancelados | otp% | duracao_media_min");
+  ROTAS.forEach(d => L.push(`${d.o}|${d.d}|${d.km || "null"}|${d.voos}|${d.canc}|${d.otp}|${d.dur}`));
+  L.push(`Extremos: rota mais longa ${EXTREMOS.maisLonga.par} (${EXTREMOS.maisLonga.de}→${EXTREMOS.maisLonga.para}) ${EXTREMOS.maisLonga.km} km; ` +
+    `mais curta ${EXTREMOS.maisCurta.par} (${EXTREMOS.maisCurta.de}→${EXTREMOS.maisCurta.para}) ${EXTREMOS.maisCurta.km} km com ${EXTREMOS.maisCurta.voos} voos.`);
+  L.push("");
+  L.push("AERÓDROMOS DE ORIGEM (58 com >=900 partidas) | icao | cidade | uf | partidas | cancelados | otp%");
+  AERO.forEach(d => L.push(`${d.icao}|${d.cidade}|${d.uf}|${d.voos}|${d.canc}|${d.otp}`));
+  L.push("");
+  L.push("CORTES OPERACIONAIS | categoria | voos | cancelados | otp% | atraso_medio_min");
+  for (const [nome, arr] of Object.entries(CORTES)) {
+    L.push("-- " + nome);
+    arr.forEach(d => L.push(`${d.l}${d.sub ? " (" + d.sub + ")" : ""}|${d.voos}|${d.canc}|${d.otp}|${d.atr}`));
+  }
+  return L.join("\n");
+}
+
+const REGRAS = `Você é o agente do Mizuki Airflows, um data warehouse de operações aéreas brasileiras.
+Responda em português do Brasil, em no máximo 5 frases curtas ou uma lista de até 5 itens.
+
+Regras:
+- Use SOMENTE os dados abaixo. Se a resposta não estiver neles, diga exatamente o que falta e qual tabela do warehouse teria a resposta. Nunca invente número.
+- Sempre cite os números que sustentam a resposta, com unidade (%, min, voos).
+- Quando o número pedido estiver afetado por um dos problemas de qualidade listados, avise em uma frase.
+- Números no formato brasileiro: 1.014.705 e 79,9%.
+- Sem saudação, sem "ótima pergunta", sem repetir a pergunta. Comece pela resposta.
+
+` + contexto();
+
+const logEl = document.getElementById("log");
+const chipsEl = document.getElementById("chips");
+const composer = document.getElementById("composer");
+const stateEl = document.getElementById("agentState");
+const footEl = document.getElementById("agentFoot");
+const qEl = document.getElementById("q");
+const sendBtn = document.getElementById("send");
+const stopBtn = document.getElementById("stop");
+
+let sampleFn = null, turns = [], ctl = null, busy = false;
+
+function addTurn(who, text, cls) {
+  const d = document.createElement("div");
+  d.className = "turn " + (cls || "");
+  const w = document.createElement("div"); w.className = "who"; w.textContent = who;
+  const b = document.createElement("div"); b.className = "bubble"; b.textContent = text;
+  d.append(w, b); logEl.appendChild(d);
+  return b;
+}
+
+const COPY = {
+  not_granted: "Você precisa permitir que esta página use o Claude para o agente responder.",
+  sampling_disabled: "O agente não está disponível nesta conta.",
+  not_declared: "O agente não está mais habilitado nesta página.",
+  capability_disabled: "O agente não está disponível neste visualizador.",
+  capability_removed: "O agente não está disponível neste visualizador.",
+  rate_limited: "Muitas perguntas em sequência. Espere um instante e tente de novo.",
+  session_expired: "Sua sessão expirou. Entre novamente e tente outra vez.",
+  refused: "O agente não respondeu a essa pergunta. Tente reformular.",
+  empty_completion: "Vazio na resposta. Tente perguntar de forma mais específica.",
+  prompt_too_large: "A conversa ficou longa. Recarregue a página para começar de novo.",
+  upstream_error: "Falha de conexão com o Claude. Tente de novo."
+};
+
+async function ask(pergunta) {
+  if (busy || !sampleFn) return;
+  busy = true;
+  sendBtn.disabled = true;
+  stopBtn.hidden = false;
+  chipsEl.hidden = true;
+  addTurn("Você", pergunta, "me");
+  const out = addTurn("Agente", "Pensando…");
+  logEl.scrollIntoView({ block: "nearest" });
+
+  turns.push({ role: "user", content: pergunta });
+  if (turns.length > 8) turns = turns.slice(-8);
+  ctl = new AbortController();
+  try {
+    const { text } = await sampleFn(
+      [{ role: "user", content: REGRAS }, ...turns],
+      {
+        cache: false, signal: ctl.signal, modelTier: "default",
+        onText: ({ text }) => { out.textContent = text; }
+      }
+    );
+    turns.push({ role: "assistant", content: text });
+    footEl.textContent = "As respostas saem dos agregados desta página, não de uma consulta ao Databricks.";
+  } catch (e) {
+    const partial = e && e.text;
+    out.textContent = partial || (COPY[e && e.code] || COPY.upstream_error);
+    if (partial) footEl.textContent = COPY[e.code] || COPY.upstream_error;
+    if (e && ["not_granted", "sampling_disabled", "not_declared",
+      "capability_disabled", "capability_removed"].includes(e.code)) {
+      composer.hidden = true;
+      stateEl.textContent = "indisponível";
+    }
+    if (e && e.code === "cancelled" && !partial) out.textContent = "Interrompido.";
+    turns.pop();
+  } finally {
+    busy = false; sendBtn.disabled = false; stopBtn.hidden = true; ctl = null;
+  }
+}
+
+sendBtn.addEventListener("click", () => {
+  const v = qEl.value.trim();
+  if (!v) return;
+  qEl.value = "";
+  ask(v);
+});
+qEl.addEventListener("keydown", e => {
+  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendBtn.click(); }
+});
+stopBtn.addEventListener("click", () => ctl && ctl.abort());
+
+SUGESTOES.forEach(t => {
+  const b = document.createElement("button");
+  b.type = "button"; b.className = "chip"; b.textContent = t;
+  b.addEventListener("click", () => ask(t));
+  chipsEl.appendChild(b);
+});
+
+(async () => {
+  const c = window.claude;
+  if (!c || !c.use) { stateEl.textContent = "indisponível aqui"; offline(); return; }
+  try {
+    sampleFn = await c.use("sample");
+  } catch (_) { sampleFn = null; }
+  if (!sampleFn) { stateEl.textContent = "indisponível aqui"; offline(); return; }
+  stateEl.textContent = "pronto";
+  chipsEl.hidden = false;
+  composer.hidden = false;
+  footEl.textContent = "A primeira pergunta pede sua permissão e usa seu próprio consumo do Claude.";
+})();
+
+function offline() {
+  footEl.textContent = "O agente responde quando a página é aberta no Claude. " +
+    "Os números e gráficos acima não dependem dele.";
+}
+</script>
