@@ -1237,10 +1237,30 @@ const GRAFICOS = {
   dispersao: gDispersao, halteres: gHalteres, mapa: gMapa
 };
 
+/* Onde cada desenhista lê a medida. barra_horizontal é o único em que ela está em x,
+   porque ali o valor corre na horizontal — e é justamente o gráfico que o prompt chama
+   de padrão. O modelo recebe apenas "x" e "y" e inverte essa exceção com frequência:
+   mediu-se um plano com x "nome_mes" e y "total_cancelados" num barra_horizontal, que
+   desenhou width="NaN" em todas as barras. Conferir contra os dados custa uma linha e
+   não depende de o modelo acertar. */
+const MEDIDA_EM = { barra_horizontal: "x", barra_vertical: "y", linha: "y" };
+
 function desenhar(host, ls, plano) {
   const f = GRAFICOS[plano.grafico];
   /* Sem dados suficientes, ou eixo que não existe no resultado: tabela. */
   if (!f || ls.length < 2 || !(plano.x in ls[0]) || !(plano.y in ls[0])) return gTabela(host, ls);
+
+  const slot = MEDIDA_EM[plano.grafico];
+  if (slot) {
+    const outro = slot === "x" ? "y" : "x";
+    /* Troca só no caso sem ambiguidade: o slot da medida não é número, e o outro é. */
+    if (!ehNum(ls[0][plano[slot]]) && ehNum(ls[0][plano[outro]])) {
+      [plano[slot], plano[outro]] = [plano[outro], plano[slot]];
+    }
+    /* Continua sem medida numérica: nenhum gráfico desse tipo diz nada. Tabela. */
+    if (!ehNum(ls[0][plano[slot]])) return gTabela(host, ls);
+  }
+
   try { return f(host, ls, plano); } catch (e) { console.warn("gráfico:", e); return gTabela(host, ls); }
 }
 
