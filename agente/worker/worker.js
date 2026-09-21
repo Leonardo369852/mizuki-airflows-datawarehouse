@@ -85,7 +85,7 @@ TABELA dim_tempo
   ano_mes TEXT, ano INT, mes INT, nome_mes TEXT, trimestre INT, estacao TEXT,
   primeiro_dia DATE, ultimo_dia DATE, dias_com_voo INT, voos BIGINT, ordem INT
   nome_mes é o rótulo pronto em português, único por linha: 'ago/2025', 'set/2025'.
-  Use ele no eixo e ordene por `ordem`. Para comparar o mesmo mês entre anos, use `mes`.
+  Use ele no eixo e ordene por "ordem". Para comparar o mesmo mês entre anos, use "mes".
   A linha com ano_mes NULL é o marcador dos voos sem data prevista, e nome_mes nela é NULL.
 
 MÉTRICAS — use exatamente estas fórmulas
@@ -193,6 +193,12 @@ Obrigatório:
   escreva um ICAO que não esteja na pergunta.
 - Apelide toda coluna de saída com AS e um nome curto em minúsculas.
 - Nomes de coluna em "x" e "y" têm de ser exatamente os apelidos do SELECT.
+- Qual dos dois é a MEDIDA depende do gráfico, e barra_horizontal é a exceção:
+    barra_horizontal  x = a medida (o valor corre na horizontal), y = o rótulo
+    barra_vertical    x = o rótulo, y = a medida
+    linha             x = o rótulo do tempo, y = a medida
+    dispersao         x e y são as duas medidas
+    halteres          x e y são os dois estados comparados
 
 Escolha de "grafico":
   barra_horizontal  ranking com rótulo comprido (empresas, aeroportos, rotas) — o padrão
