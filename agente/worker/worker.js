@@ -84,6 +84,9 @@ TABELA dim_rota
 TABELA dim_tempo
   ano_mes TEXT, ano INT, mes INT, nome_mes TEXT, trimestre INT, estacao TEXT,
   primeiro_dia DATE, ultimo_dia DATE, dias_com_voo INT, voos BIGINT, ordem INT
+  nome_mes é o rótulo pronto em português, único por linha: 'ago/2025', 'set/2025'.
+  Use ele no eixo e ordene por `ordem`. Para comparar o mesmo mês entre anos, use `mes`.
+  A linha com ano_mes NULL é o marcador dos voos sem data prevista, e nome_mes nela é NULL.
 
 MÉTRICAS — use exatamente estas fórmulas
   OTP de partida (pontualidade, a métrica nº 1 do setor):
@@ -201,8 +204,10 @@ Escolha de "grafico":
   tabela            mais de 3 colunas de medida, ou nada disso serve
 
 Preencha "aviso" (uma frase, ou vazio) quando um problema da fonte afeta ESTE número.
-Se a pergunta não puder ser respondida com o schema, devolva grafico "tabela", um SELECT que
-retorne uma linha explicando, e escreva o motivo em "aviso".
+Um mês com dias_com_voo menor que 28 está incompleto: a fonte termina no meio dele. Ao
+mostrar série por mês, diga isso no "aviso" — senão o último ponto parece uma queda.
+Pergunta que o schema não responde NÃO vira consulta: ela é "conversa", como manda o
+roteamento. Nunca devolva um SELECT que retorna uma frase de explicação.
 `;
 
 /* A narração recebe só o que usa: como as métricas se chamam, quais ressalvas existem
