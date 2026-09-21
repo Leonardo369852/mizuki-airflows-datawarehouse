@@ -1,0 +1,1689 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Agente e painel sobre 1 milhao de voos comerciais brasileiros (VRA/ANAC), consultaveis por SQL no proprio navegador.">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 3 19 14l10 3-10 3-3 11-3-11-10-3 10-3z' fill='%232a78d6'/%3E%3C/svg%3E">
+<title>Mizuki Airflows</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Source+Sans+3:wght@400;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+
+<style>
+:root {
+  --plane:        #f9f9f7;
+  --surface:      #fcfcfb;
+  --surface-sunk: #f2f1ed;
+  --ink:          #0b0b0b;
+  --ink-2:        #52514e;
+  --ink-muted:    #898781;
+  --grid:         #e1e0d9;
+  --axis:         #c3c2b7;
+  --hair:         rgba(11,11,11,.10);
+  --s1:           #2a78d6;
+  --s2:           #eb6834;
+  --s3:           #1baf7a;
+  --good:         #0ca30c;
+  --warning:      #fab219;
+  --serious:      #ec835a;
+  --critical:     #d03b3b;
+  --s1-wash:      rgba(42,120,214,.12);
+  --s2-wash:      rgba(235,104,52,.12);
+  --shadow:       0 1px 2px rgba(11,11,11,.05);
+
+  --display: "Archivo", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --body:    "Source Sans 3", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono:    "IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --plane:        #0d0d0d;
+    --surface:      #1a1a19;
+    --surface-sunk: #131312;
+    --ink:          #ffffff;
+    --ink-2:        #c3c2b7;
+    --ink-muted:    #898781;
+    --grid:         #2c2c2a;
+    --axis:         #383835;
+    --hair:         rgba(255,255,255,.10);
+    --s1:           #3987e5;
+    --s2:           #d95926;
+    --s3:           #199e70;
+    --s1-wash:      rgba(57,135,229,.16);
+    --s2-wash:      rgba(217,89,38,.16);
+    --shadow:       0 1px 2px rgba(0,0,0,.4);
+  }
+}
+:root[data-theme="dark"] {
+  --plane:        #0d0d0d;
+  --surface:      #1a1a19;
+  --surface-sunk: #131312;
+  --ink:          #ffffff;
+  --ink-2:        #c3c2b7;
+  --ink-muted:    #898781;
+  --grid:         #2c2c2a;
+  --axis:         #383835;
+  --hair:         rgba(255,255,255,.10);
+  --s1:           #3987e5;
+  --s2:           #d95926;
+  --s3:           #199e70;
+  --s1-wash:      rgba(57,135,229,.16);
+  --s2-wash:      rgba(217,89,38,.16);
+  --shadow:       0 1px 2px rgba(0,0,0,.4);
+}
+
+* { box-sizing: border-box; }
+/* display de autor sobrepoe o [hidden] do navegador; isto devolve a precedencia. */
+[hidden] { display: none !important; }
+body {
+  margin: 0;
+  background: var(--plane);
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---------- header ---------- */
+h1 {
+  font-family: var(--display); font-weight: 700; font-size: clamp(30px, 6vw, 46px);
+  line-height: 1.02; letter-spacing: -.02em; margin: 0 0 12px; text-wrap: balance;
+}
+.stamps { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+.stamp {
+  font-family: var(--mono); font-size: 11px; letter-spacing: .04em;
+  border: 1px solid var(--hair); border-radius: 3px; padding: 4px 8px;
+  color: var(--ink-2); background: var(--surface-sunk); white-space: nowrap;
+}
+
+/* ---------- sections ---------- */
+section { margin-top: 44px; }
+h2 {
+  font-family: var(--display); font-weight: 600; font-size: 21px; letter-spacing: -.01em;
+  margin: 0; text-wrap: balance;
+}
+
+/* ---------- kpi ---------- */
+.kpi-sub { font-size: 12.5px; color: var(--ink-2); margin-top: 5px; }
+.kpi-rail { border-top: 2px solid transparent; }
+.rail-good { border-top-color: var(--good); }
+.kpis.secondary .kpi-v { font-size: 21px; font-weight: 600; }
+
+/* ---------- panels & charts ---------- */
+.panel { background: var(--surface); border: 1px solid var(--hair); border-radius: 4px;
+         padding: 16px 16px 12px; box-shadow: var(--shadow); }
+.panel-t { font-family: var(--display); font-weight: 600; font-size: 14.5px; margin: 0 0 2px; }
+.panel-s { font-size: 12.5px; color: var(--ink-2); margin: 0 0 12px; }
+.duo { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.trio { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+svg { display: block; width: 100%; height: auto; overflow: visible; }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; margin: 10px 0 0; font-size: 12.5px; color: var(--ink-2); }
+.legend i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; margin-right: 5px;
+            vertical-align: 1px; }
+
+/* ---------- tables ---------- */
+table { border-collapse: collapse; width: 100%; font-size: 13.5px; min-width: 620px; }
+th, td { text-align: right; padding: 8px 12px; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+th {
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: .05em; text-transform: uppercase;
+  color: var(--ink-muted); font-weight: 500; position: sticky; top: 0; background: var(--surface);
+  border-bottom: 1px solid var(--axis);
+}
+th.sortable { cursor: pointer; user-select: none; }
+th.sortable:hover { color: var(--ink); }
+th[aria-sort] { color: var(--ink); }
+th[aria-sort]::after { content: " ▾"; }
+tbody tr:last-child td { border-bottom: 0; }
+td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.bar-cell { position: relative; }
+.bar-cell span { position: relative; z-index: 1; }
+.bar-cell::before {
+  content: ""; position: absolute; inset: 3px auto 3px 0; width: var(--w, 0);
+  background: var(--s1-wash); border-radius: 2px;
+}
+
+/* ---------- agent ---------- */
+.agent { border: 1px solid var(--hair); border-radius: 4px; background: var(--surface);
+         box-shadow: var(--shadow); overflow: hidden; }
+.agent-head { padding: 14px 16px; border-bottom: 1px solid var(--hair); display: flex;
+              justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.agent-title { font-family: var(--display); font-weight: 600; font-size: 14.5px; }
+.agent-state { font-family: var(--mono); font-size: 10.5px; letter-spacing: .06em;
+               text-transform: uppercase; color: var(--ink-muted); }
+.chips { display: flex; flex-wrap: wrap; gap: 7px; padding: 14px 16px 0; }
+.chip {
+  font-family: var(--body); font-size: 13px; color: var(--ink-2); background: var(--surface-sunk);
+  border: 1px solid var(--hair); border-radius: 999px; padding: 5px 11px; cursor: pointer;
+  text-align: left; line-height: 1.3;
+}
+.chip:hover { color: var(--ink); border-color: var(--axis); }
+.log { padding: 14px 16px 0; display: flex; flex-direction: column; gap: 12px; }
+.turn { max-width: 68ch; }
+.turn .who { font-family: var(--mono); font-size: 10.5px; letter-spacing: .07em;
+             text-transform: uppercase; color: var(--ink-muted); margin-bottom: 4px; }
+.turn.me .bubble { background: var(--surface-sunk); border-left: 2px solid var(--s1);
+                   padding: 8px 12px; border-radius: 0 4px 4px 0; }
+.bubble { white-space: pre-wrap; }
+.bubble strong { font-weight: 600; }
+.composer { display: flex; gap: 8px; padding: 14px 16px; align-items: flex-end; }
+textarea {
+  flex: 1; resize: vertical; min-height: 44px; max-height: 160px; font-family: var(--body);
+  font-size: 15px; color: var(--ink); background: var(--surface-sunk); border: 1px solid var(--hair);
+  border-radius: 4px; padding: 10px 12px; line-height: 1.45;
+}
+button.go {
+  font-family: var(--display); font-weight: 600; font-size: 14px; color: #fff; background: var(--s1);
+  border: 0; border-radius: 4px; padding: 11px 16px; cursor: pointer;
+}
+button.go:hover { filter: brightness(1.08); }
+button.go[disabled] { opacity: .45; cursor: default; }
+button.ghost {
+  font-family: var(--body); font-size: 13px; color: var(--ink-2); background: transparent;
+  border: 1px solid var(--hair); border-radius: 4px; padding: 6px 10px; cursor: pointer;
+}
+.agent-foot { padding: 0 16px 14px; font-size: 12px; color: var(--ink-muted); }
+
+/* ---------- resultado de uma pergunta: gráfico + SQL + tabela ---------- */
+.res { max-width: 100%; }
+.res-chart { margin: 12px 0 4px; }
+.res-chart svg { width: 100%; height: auto; display: block; }
+.res-title { font-family: var(--display); font-weight: 600; font-size: 13.5px;
+             color: var(--ink-2); margin: 10px 0 0; }
+.res-meta { font-family: var(--mono); font-size: 10.5px; letter-spacing: .04em;
+            color: var(--ink-muted); margin-top: 6px; }
+.aviso { display: grid; grid-template-columns: 16px 1fr; gap: 8px; align-items: start;
+         font-size: 12.5px; color: var(--ink-2); background: var(--surface-sunk);
+         border-left: 2px solid var(--warning); padding: 8px 11px; border-radius: 0 3px 3px 0;
+         margin-top: 10px; }
+.aviso svg { width: 14px; height: 14px; margin-top: 2px; }
+.res details { margin-top: 10px; }
+.res summary { font-family: var(--mono); font-size: 10.5px; letter-spacing: .06em;
+               text-transform: uppercase; color: var(--ink-muted); cursor: pointer;
+               padding: 4px 0; list-style: none; }
+.res summary::-webkit-details-marker { display: none; }
+.res summary::before { content: "▸ "; }
+.res details[open] summary::before { content: "▾ "; }
+.res summary:hover { color: var(--ink-2); }
+.sqlbox { font-family: var(--mono); font-size: 11.5px; line-height: 1.6; color: var(--ink-2);
+          background: var(--surface-sunk); border: 1px solid var(--hair); border-radius: 4px;
+          padding: 11px 13px; overflow-x: auto; white-space: pre; margin-top: 4px; }
+.sqlbox b { color: var(--s1); font-weight: 600; }
+.restable { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-top: 4px; }
+.restable th { font-family: var(--mono); font-size: 10px; letter-spacing: .05em;
+               text-transform: uppercase; color: var(--ink-muted); font-weight: 500;
+               text-align: left; padding: 5px 9px 5px 0; border-bottom: 1px solid var(--hair); }
+.restable td { padding: 4px 9px 4px 0; border-bottom: 1px solid var(--hair); }
+.restable td.num { font-family: var(--mono); font-variant-numeric: tabular-nums;
+                   text-align: right; padding-right: 14px; }
+.loadbar { height: 2px; background: var(--surface-sunk); overflow: hidden; }
+.loadbar i { display: block; height: 100%; width: 30%; background: var(--s1);
+             animation: slide 1.1s ease-in-out infinite; }
+@keyframes slide { 0% { transform: translateX(-100%); } 100% { transform: translateX(400%); } }
+@media (prefers-reduced-motion: reduce) { .loadbar i { animation: none; width: 100%; opacity: .4; } }
+
+/* ---------- findings ---------- */
+
+/* ---------- tooltip ---------- */
+#tip {
+  position: fixed; z-index: 50; pointer-events: none; background: var(--surface);
+  border: 1px solid var(--axis); border-radius: 4px; padding: 7px 10px; font-size: 12.5px;
+  box-shadow: 0 4px 14px rgba(0,0,0,.14); max-width: 250px; line-height: 1.4;
+}
+#tip .tt { font-family: var(--display); font-weight: 600; font-size: 13px; margin-bottom: 3px; }
+#tip .tr { display: flex; justify-content: space-between; gap: 14px; color: var(--ink-2); }
+#tip .tr b { font-family: var(--mono); font-variant-numeric: tabular-nums; color: var(--ink);
+             font-weight: 500; }
+
+footer { margin-top: 48px; padding-top: 20px; border-top: 1px solid var(--hair);
+         font-size: 13px; color: var(--ink-2); }
+footer a { color: var(--s1); }
+dl.defs { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 12px 0 0; }
+dl.defs dt { font-family: var(--mono); font-size: 11.5px; color: var(--ink-muted); }
+dl.defs dd { margin: 0; font-size: 13.5px; }
+
+:focus-visible { outline: 2px solid var(--s1); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+@media (max-width: 760px) {
+  .kpis { grid-template-columns: repeat(2, 1fr); }
+  .duo, .trio { grid-template-columns: 1fr; }
+  .find { grid-template-columns: 1fr; gap: 6px; }
+  .sev { border-left: 0; padding-left: 0; border-top: 3px solid var(--axis); padding-top: 6px; }
+  .sev.alto { border-top-color: var(--critical); }
+  .sev.medio { border-top-color: var(--serious); }
+  .sev.baixo { border-top-color: var(--warning); }
+}
+
+/* ---------- topo: o chat tem de caber na primeira tela ---------- */
+.top h1 { font-family: var(--display); font-weight: 700; font-size: clamp(30px, 5.4vw, 44px);
+          line-height: 1.08; letter-spacing: -.02em; margin: 0 0 14px; }
+
+
+/* ---------- "como funciona": recolhido por padrão ---------- */
+
+/* ---------- achados de qualidade ---------- */
+
+
+/* ==========================================================================
+   LAYOUT DE APP DE CHAT
+
+   O scroll é do transcript, não do elemento body. Isso é o que faz a barra de escrita
+   ficar fixa de verdade: com scroll na página, o teclado do celular empurra a
+   página e a barra sobe junto ou desaparece. Com o scroll num container, ela é
+   só o último item de um flex column de altura fixa.
+
+   100dvh e não 100vh: no Safari e no Chrome mobile, 100vh é a altura COM a
+   barra de endereço recolhida, então a composer some atrás dela.
+   ========================================================================== */
+html { height: 100%; }
+body { height: 100%; overflow: hidden; }
+
+.app { display: flex; flex-direction: column; height: 100vh; height: 100dvh; }
+
+/* ---------- barra de topo, sempre visível ---------- */
+.bar {
+  flex: none; display: flex; align-items: center; gap: 12px;
+  height: 50px; padding: 0 16px;
+  border-bottom: 1px solid var(--hair); background: var(--surface);
+}
+.bar-nome { font-family: var(--display); font-weight: 600; font-size: 14px; letter-spacing: -.01em; }
+.bar-tag { font-family: var(--mono); font-size: 10px; letter-spacing: .08em;
+           text-transform: uppercase; color: var(--ink-muted);
+           border: 1px solid var(--hair); border-radius: 3px; padding: 2px 6px; }
+.bar-dir { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+
+/* O estado só aparece quando diz algo: "carregando" e "indisponível" são úteis,
+   "pronto" é ruído — o visitante já vê que está pronto porque pode digitar. */
+.bar-estado { font-family: var(--mono); font-size: 10.5px; letter-spacing: .06em;
+              text-transform: uppercase; color: var(--ink-muted); }
+
+/* Ver o código é a chamada mais importante da barra depois do próprio chat:
+   é o que um engenheiro que abre o link quer. Então é botão, não link solto. */
+.bar-repo {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-family: var(--display); font-weight: 600; font-size: 12.5px;
+  color: var(--ink); text-decoration: none;
+  background: var(--surface); border: 1px solid var(--axis);
+  border-radius: 999px; padding: 6px 14px 6px 11px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .07);
+  transition: background .15s, border-color .15s, color .15s, transform .15s, box-shadow .15s;
+}
+.bar-repo:hover {
+  background: var(--s1); border-color: var(--s1); color: #fff;
+  transform: translateY(-1px); box-shadow: 0 3px 8px var(--s1-wash);
+}
+.bar-repo:active { transform: none; }
+.bar-repo:focus-visible { outline: 2px solid var(--s1); outline-offset: 2px; }
+.bar-repo svg { width: 15px; height: 15px; flex: none; }
+
+/* ---------- alternar tema ---------- */
+.bar-tema {
+  display: grid; place-items: center; width: 31px; height: 31px;
+  border-radius: 50%; cursor: pointer; padding: 0;
+  background: transparent; border: 1px solid var(--hair); color: var(--ink-2);
+  transition: background .15s, color .15s, border-color .15s;
+}
+.bar-tema:hover { background: var(--surface-sunk); color: var(--ink); border-color: var(--axis); }
+.bar-tema:focus-visible { outline: 2px solid var(--s1); outline-offset: 2px; }
+.bar-tema svg { width: 16px; height: 16px; }
+/* Mostra o ícone do tema que o clique VAI aplicar, não o atual. */
+.bar-tema .ico-sol { display: none; }
+.bar-tema .ico-lua { display: block; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .bar-tema .ico-sol { display: block; }
+  :root:not([data-theme="light"]) .bar-tema .ico-lua { display: none; }
+}
+:root[data-theme="dark"] .bar-tema .ico-sol { display: block; }
+:root[data-theme="dark"] .bar-tema .ico-lua { display: none; }
+:root[data-theme="light"] .bar-tema .ico-sol { display: none; }
+:root[data-theme="light"] .bar-tema .ico-lua { display: block; }
+@media (max-width: 480px) {
+  .bar-repo span { display: none; }            /* no celular fica só o ícone */
+  .bar-repo { padding: 7px; }
+}
+
+/* ---------- transcript ---------- */
+.scroll { flex: 1 1 auto; overflow-y: auto; overscroll-behavior-y: contain;
+          display: flex; flex-direction: column; }
+.thread { width: 100%; max-width: 720px; margin-inline: auto; padding: 38px 16px 8px; }
+
+/* Estado vazio: a abertura fica centrada na tela, como nos apps de chat. Assim que a
+   conversa começa, a classe sai e o conteúdo passa a fluir do topo para baixo.
+
+   Centrar é condicional: quando o conteúdo é mais alto que a tela — celular pequeno —
+   qualquer centralização (justify-content: center ou margin-block: auto) empurra o topo
+   para fora do alcance da rolagem e ele fica inacessível. A palavra-chave `safe` existe
+   para isso, mas o Chromium a aceita no parser sem aplicar o comportamento — medido aqui.
+   Então quem decide é o JS, que mede se cabe e só então põe a classe. */
+.scroll.vazio.centrado { justify-content: center; }
+
+.hero { margin-bottom: 24px; }
+.hero h1 { font-family: var(--display); font-weight: 700; letter-spacing: -.022em;
+           font-size: clamp(26px, 5.2vw, 38px); line-height: 1.1; margin: 0 0 10px; }
+.hero p { font-size: 16px; line-height: 1.5; color: var(--ink-2); margin: 0; max-width: 56ch; }
+
+/* ---------- balões ---------- */
+.turn { margin-bottom: 16px; }
+.turn .who { font-family: var(--mono); font-size: 10px; letter-spacing: .08em;
+             text-transform: uppercase; color: var(--ink-muted); margin-bottom: 5px; }
+
+/* O visitante à direita, em pílula — convenção dos apps de chat. */
+.turn.me { display: flex; flex-direction: column; align-items: flex-end; }
+.turn.me .who { display: none; }
+.turn.me .bubble {
+  background: var(--s1-wash); border: 1px solid transparent;
+  border-radius: 14px 14px 5px 14px; padding: 9px 14px;
+  max-width: min(84%, 52ch); color: var(--ink);
+}
+
+/* O agente em balão de superfície: é o "informação flutuante" da conversa. */
+.turn.bot .bubble, .card {
+  background: var(--surface); border: 1px solid var(--hair);
+  border-radius: 5px 14px 14px 14px; padding: 13px 16px;
+}
+/* Texto do agente preserva quebras; balão escrito em HTML, não — senão a
+   indentação do código-fonte vira espaço em branco visível na tela. */
+.bubble { white-space: normal; line-height: 1.6; }
+.bubble.pre { white-space: pre-wrap; }
+.bubble strong { font-weight: 600; }
+.bubble.vazio { color: var(--ink-muted); }
+
+/* Números da abertura: texto corrido, com os valores destacados. */
+.intro { margin: 0 0 14px; }
+.intro:last-child { margin-bottom: 0; }
+.intro b { font-family: var(--mono); font-size: 14px; font-weight: 500; color: var(--ink); }
+.intro .dim { color: var(--ink-muted); }
+
+/* ---------- "como isto funciona", dentro de um balão ---------- */
+.comofunciona summary {
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: .07em;
+  text-transform: uppercase; color: var(--ink-muted); cursor: pointer; list-style: none;
+}
+.comofunciona summary::-webkit-details-marker { display: none; }
+.comofunciona summary::before { content: "＋ "; }
+.comofunciona[open] summary::before { content: "－ "; }
+.comofunciona summary:hover { color: var(--ink-2); }
+.comofunciona .corpo { padding-top: 12px; }
+.comofunciona p { font-size: 14px; line-height: 1.6; color: var(--ink-2); margin: 0 0 11px; }
+.comofunciona p:last-child { margin-bottom: 0; }
+.flow { display: flex; flex-wrap: wrap; gap: 5px; font-family: var(--mono); font-size: 10.5px; }
+.flow span { background: var(--surface-sunk); border: 1px solid var(--hair); border-radius: 3px;
+             padding: 3px 7px; color: var(--ink-2); }
+.flow span + span::before { content: "→ "; color: var(--ink-muted); }
+
+/* ---------- perguntas prontas ---------- */
+.chips { display: flex; flex-wrap: wrap; gap: 7px; padding: 4px 0 18px; }
+
+/* ---------- resultado: gráfico ocupa a largura do thread ---------- */
+.turn.res { max-width: none; }
+/* A classe .res só entra quando o bloco do gráfico é anexado — antes disso (pensando,
+   ou resposta de conversa) o balão tem de ficar arredondado como qualquer outro. */
+.turn.res > .bubble { border-radius: 5px 14px 0 0; border-bottom: 0; padding-bottom: 6px; }
+
+/* ---------- pensando: três pontos pulsando ---------- */
+.bubble.pensando { color: var(--ink-2); display: flex; align-items: baseline; gap: 2px; }
+.pontos { display: inline-flex; gap: 3px; margin-left: 2px; }
+.pontos i {
+  width: 4px; height: 4px; border-radius: 50%; background: var(--ink-muted);
+  animation: pulsa 1.25s ease-in-out infinite;
+}
+.pontos i:nth-child(2) { animation-delay: .18s; }
+.pontos i:nth-child(3) { animation-delay: .36s; }
+@keyframes pulsa {
+  0%, 60%, 100% { opacity: .25; transform: translateY(0); }
+  30%           { opacity: 1;   transform: translateY(-3px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pontos i { animation: none; opacity: .55; }
+}
+.res-corpo { background: var(--surface); border: 1px solid var(--hair); border-top: 0;
+             border-radius: 0 0 14px 14px; padding: 4px 16px 14px; }
+
+/* ---------- doca: a barra de escrita, fixa embaixo ---------- */
+.dock {
+  flex: none; padding: 8px 16px calc(14px + env(safe-area-inset-bottom, 0px));
+  background: var(--plane);
+  border-top: 1px solid transparent;
+}
+.dock-in { max-width: 720px; margin: 0 auto; }
+
+/* Véu que desfoca o conteúdo passando por baixo da doca. */
+.veu { flex: none; height: 24px; margin-bottom: -24px; pointer-events: none;
+       background: linear-gradient(to top, var(--plane), transparent); }
+
+.composer {
+  display: flex; align-items: flex-end; gap: 8px;
+  background: var(--surface); border: 1px solid var(--hair); border-radius: 18px;
+  padding: 7px 7px 7px 15px; transition: border-color .15s;
+}
+.composer:focus-within { border-color: var(--axis); }
+.composer textarea {
+  flex: 1; border: 0; background: transparent; resize: none; outline: none;
+  font-family: var(--body); font-size: 15.5px; line-height: 1.5; color: var(--ink);
+  padding: 7px 0; max-height: 168px; min-height: 22px; overflow-y: auto;
+}
+.composer textarea::placeholder { color: var(--ink-muted); }
+
+button.enviar {
+  flex: none; width: 34px; height: 34px; border-radius: 50%; border: 0; cursor: pointer;
+  background: var(--s1); color: #fff; display: grid; place-items: center; padding: 0;
+  transition: opacity .15s, filter .15s;
+}
+button.enviar:hover { filter: brightness(1.09); }
+button.enviar:disabled { opacity: .3; cursor: default; }
+button.enviar svg { width: 17px; height: 17px; }
+button.parar {
+  flex: none; width: 34px; height: 34px; border-radius: 50%; cursor: pointer;
+  background: var(--surface-sunk); border: 1px solid var(--hair);
+  display: grid; place-items: center; padding: 0;
+}
+button.parar span { width: 9px; height: 9px; border-radius: 1.5px; background: var(--ink-2); }
+
+.dica { font-size: 11.5px; line-height: 1.45; color: var(--ink-muted);
+        margin: 8px 2px 0; text-align: center; }
+
+@media (max-width: 560px) {
+  .thread { padding-top: 26px; }
+  .bar-tag { display: none; }
+  .dica { text-align: left; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .scroll { scroll-behavior: auto; }
+}
+</style>
+</head>
+<body>
+<div id="tip" hidden><b></b><span></span></div>
+
+<div class="app">
+  <header class="bar">
+    <span class="bar-nome">Agente Mizuki</span>
+    <span class="bar-tag">VRA · ANAC</span>
+    <span class="bar-dir">
+      <span class="bar-estado" id="agentState">carregando o banco…</span>
+      <button class="bar-tema" id="tema" type="button" aria-pressed="false"
+              aria-label="Alternar tema claro e escuro" title="Alternar tema">
+        <svg class="ico-sol" viewBox="0 0 24 24" aria-hidden="true" fill="none"
+             stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <circle cx="12" cy="12" r="4.2"/>
+          <path d="M12 2.6v2.1M12 19.3v2.1M2.6 12h2.1M19.3 12h2.1M5.4 5.4l1.5 1.5M17.1 17.1l1.5 1.5M18.6 5.4l-1.5 1.5M6.9 17.1l-1.5 1.5"/>
+        </svg>
+        <svg class="ico-lua" viewBox="0 0 24 24" aria-hidden="true" fill="none"
+             stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <path d="M20.5 14.6A8.6 8.6 0 1 1 9.4 3.5a6.8 6.8 0 0 0 11.1 11.1z"/>
+        </svg>
+      </button>
+      <a class="bar-repo" href="https://github.com/Leonardo369852/mizuki-airflows-datawarehouse"
+         target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
+          <path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2.2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-6 0-1.2.5-2.3 1.3-3.1-.2-.4-.6-1.6.1-3.2 0 0 1-.3 3.4 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.7 1.6.3 2.8.1 3.2.9.8 1.3 1.9 1.3 3.1 0 4.7-2.8 5.7-5.5 6 .4.4.8 1.2.8 2.3v3.4c0 .3.2.7.8.6A12 12 0 0 0 12 .3z"/>
+        </svg><span>Ver o código</span>
+      </a>
+    </span>
+  </header>
+
+  <div class="loadbar" id="loadbar"><i></i></div>
+
+  <div class="scroll vazio" id="scroll">
+    <div class="thread">
+      <div class="hero">
+        <h1>Pergunte sobre um milhão de voos</h1>
+        <p>Um data warehouse de operações aéreas brasileiras, construído sobre os dados
+          abertos da ANAC. Esta página é uma <strong>demonstração pública</strong> sobre um
+          recorte agregado — o agente principal do projeto vive no Databricks e não pode ser
+          aberto por link.</p>
+      </div>
+
+      <div class="turn bot">
+        <div class="who">Agente</div>
+        <div class="bubble">
+          <p class="intro" id="intro"></p>
+          <details class="comofunciona">
+            <summary>Como isto funciona</summary>
+            <div class="corpo">
+              <p>A camada Gold do warehouse tem uma linha por voo. Ela foi pré-agregada em um
+                fato de <b id="nLinhas">—</b> linhas — <strong>somas e contagens, nunca
+                médias</strong>, para que qualquer recorte que você pedir continue
+                aritmeticamente correto — e publicada como cinco Parquet.</p>
+              <p class="flow"><span>sua pergunta</span><span>o modelo escreve o SQL</span><span>o
+                DuckDB executa no seu navegador</span><span>gráfico</span></p>
+              <p>O modelo nunca produz um número: ele escolhe a consulta, e a conta é feita na
+                sua máquina. Por isso todo valor tem um <em>ver o SQL</em> ao lado. As perguntas
+                prontas já trazem a consulta escrita e nem chamam o modelo.</p>
+              <p><strong>O que esta demonstração não responde.</strong> O grão do fato exportado é
+                mês × empresa × origem × destino × situação × período. Abaixo disso foi perdido de
+                propósito, para caber em 1,5 MB: um voo específico (número, data exata, horário),
+                qualquer corte por dia ou por dia da semana, o horário exato de partida, os minutos
+                de atraso recuperados em voo e o status do aeródromo. O agente principal — um Genie
+                space no Databricks, sobre a tabela inteira de 1.014.705 linhas e 56 colunas —
+                responde tudo isso, mas todo recurso do Databricks exige conta no workspace.
+                <a href="https://github.com/Leonardo369852/mizuki-airflows-datawarehouse#os-dois-agentes"
+                   target="_blank" rel="noopener">A comparação completa está no README.</a></p>
+            </div>
+          </details>
+        </div>
+      </div>
+
+      <div class="chips" id="chips" hidden></div>
+      <div id="log"></div>
+    </div>
+  </div>
+
+  <div class="veu"></div>
+  <div class="dock">
+    <div class="dock-in">
+      <div class="composer">
+        <textarea id="q" rows="1" placeholder="Pergunte sobre voos, empresas, aeroportos, rotas…"
+          aria-label="Sua pergunta" maxlength="300"></textarea>
+        <button class="parar" id="stop" type="button" hidden aria-label="Parar"><span></span></button>
+        <button class="enviar" id="send" type="button" aria-label="Perguntar">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 19V5M5 12l7-7 7 7" fill="none" stroke="currentColor"
+              stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </div>
+      <p class="dica" id="agentFoot"></p>
+    </div>
+  </div>
+</div>
+
+<script>
+const nf = n => n.toLocaleString("pt-BR");
+const pf = (n, d = 1) => n.toLocaleString("pt-BR", { minimumFractionDigits: d, maximumFractionDigits: d });
+const pct = n => pf(n, 1) + "%";
+const min = n => pf(n, 1) + " min";
+const km = n => nf(Math.round(n)) + " km";
+
+/* ==========================================================================
+   TOOLTIP
+   ========================================================================== */
+const tip = document.getElementById("tip");
+function showTip(ev, title, rows) {
+  tip.innerHTML = '<div class="tt"></div>' +
+    rows.map(() => '<div class="tr"><span></span><b></b></div>').join("");
+  tip.querySelector(".tt").textContent = title;
+  tip.querySelectorAll(".tr").forEach((el, i) => {
+    el.querySelector("span").textContent = rows[i][0];
+    el.querySelector("b").textContent = rows[i][1];
+  });
+  tip.hidden = false;
+  moveTip(ev);
+}
+function moveTip(ev) {
+  const r = tip.getBoundingClientRect();
+  let x = ev.clientX + 14, y = ev.clientY + 14;
+  if (x + r.width > innerWidth - 8) x = ev.clientX - r.width - 14;
+  if (y + r.height > innerHeight - 8) y = ev.clientY - r.height - 14;
+  tip.style.left = Math.max(8, x) + "px";
+  tip.style.top = Math.max(8, y) + "px";
+}
+function hideTip() { tip.hidden = true; }
+function hoverable(el, title, rows) {
+  el.addEventListener("pointerenter", e => showTip(e, title, rows));
+  el.addEventListener("pointermove", moveTip);
+  el.addEventListener("pointerleave", hideTip);
+}
+
+/* ==========================================================================
+   HELPERS SVG
+   ========================================================================== */
+const SVGNS = "http://www.w3.org/2000/svg";
+function svgEl(tag, attrs) {
+  const e = document.createElementNS(SVGNS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  return e;
+}
+function mount(id, w, h) {
+  const host = document.getElementById(id);
+  host.textContent = "";
+  const s = svgEl("svg", { viewBox: `0 0 ${w} ${h}`, role: "img" });
+  host.appendChild(s);
+  return s;
+}
+function txt(parent, x, y, s, o = {}) {
+  const t = svgEl("text", {
+    x, y,
+    "font-family": o.mono ? "var(--mono)" : "var(--body)",
+    "font-size": o.size || 10.5,
+    "font-weight": o.weight || 400,
+    fill: o.fill || "var(--ink-muted)",
+    "text-anchor": o.anchor || "start",
+    "dominant-baseline": o.base || "auto"
+  });
+  t.textContent = s;
+  parent.appendChild(t);
+  return t;
+}
+
+/* ==========================================================================
+   9. AGENTE — pergunta -> SQL -> DuckDB no navegador -> gráfico
+
+   O modelo escreve SQL. O SQL roda aqui, em memória, sobre cinco Parquet
+   estáticos. Nenhum número da tela sai da cabeça do modelo: todos saem de
+   uma query, e "ver o SQL" mostra qual.
+
+   Se WORKER não estiver configurado, as perguntas prontas continuam
+   funcionando — cada uma carrega o seu próprio SQL. Só o texto livre
+   precisa de um modelo.
+   ========================================================================== */
+
+/* Worker que guarda o prompt e a chave da IA. Ver agente/worker/README.md.
+   Vazio = a página funciona só com as perguntas prontas, que trazem o próprio SQL. */
+const WORKER = "https://mizuki-agente.leonardo369852.workers.dev";
+
+const TABELAS = ["fato_voos", "dim_empresa", "dim_aerodromo", "dim_rota", "dim_tempo"];
+
+/* O DuckDB são ~7 MB comprimidos (cache immutable de 1 ano). Carregado sob demanda: quem
+   só olha os gráficos das outras seções não paga por isso. Ver garantirBanco().
+
+   `dist/duckdb-browser.mjs` tem `import "apache-arrow"` solto, que o navegador não resolve.
+   O `+esm` do jsdelivr reescreve esse import; os .wasm e os workers vêm do dist mesmo. */
+const DUCKDB_VER = "1.32.0";
+const DUCKDB_ESM = `https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@${DUCKDB_VER}/+esm`;
+const DUCKDB_DIST = `https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@${DUCKDB_VER}/dist/`;
+
+/* Perguntas prontas: cada uma traz o plano escrito à mão, para funcionar sem LLM.
+   São também os exemplos que ensinam o visitante o que dá para perguntar. */
+const SUGESTOES = [
+  {
+    p: "Qual empresa tem a maior taxa de cancelamento?",
+    grafico: "barra_horizontal", x: "taxa", y: "empresa", unidade: "%",
+    titulo: "Taxa de cancelamento — empresas com 500+ voos programados",
+    sql: `SELECT e.nome AS empresa,
+       100.0 * SUM(f.cancelados) / SUM(f.voos) AS taxa,
+       SUM(f.voos) AS programados
+FROM fato_voos f JOIN dim_empresa e ON f.icao_empresa = e.icao_empresa
+GROUP BY e.nome
+HAVING SUM(f.voos) >= 500
+ORDER BY taxa DESC
+LIMIT 15`
+  },
+  {
+    p: "Como a pontualidade variou mês a mês?",
+    grafico: "linha", x: "mes", y: "otp", unidade: "%",
+    titulo: "OTP de partida por mês",
+    aviso: "Exclui os 30.800 voos sem data de partida prevista — sem horário previsto não há atraso a calcular.",
+    sql: `SELECT t.ano_mes AS mes,
+       100.0 * SUM(f.partidas_pontuais) / NULLIF(SUM(f.realizados), 0) AS otp,
+       SUM(f.realizados) AS realizados
+FROM fato_voos f JOIN dim_tempo t ON f.ano_mes = t.ano_mes
+WHERE t.ano_mes IS NOT NULL AND t.dias_com_voo > 5
+GROUP BY t.ano_mes, t.ordem
+ORDER BY t.ordem
+LIMIT 20`
+  },
+  {
+    p: "Sair de São Paulo é pior que chegar?",
+    grafico: "halteres", x: "saindo", y: "chegando", unidade: "%",
+    titulo: "OTP saindo de GRU/CGH contra chegando — mesmas rotas",
+    sql: `WITH sp AS (SELECT 'SBGR' AS icao UNION ALL SELECT 'SBSP'),
+saindo AS (
+  SELECT f.icao_destino AS ponta,
+         100.0 * SUM(f.partidas_pontuais) / NULLIF(SUM(f.realizados), 0) AS otp,
+         SUM(f.realizados) AS n
+  FROM fato_voos f WHERE f.icao_origem IN (SELECT icao FROM sp)
+  GROUP BY f.icao_destino),
+chegando AS (
+  SELECT f.icao_origem AS ponta,
+         100.0 * SUM(f.partidas_pontuais) / NULLIF(SUM(f.realizados), 0) AS otp,
+         SUM(f.realizados) AS n
+  FROM fato_voos f WHERE f.icao_destino IN (SELECT icao FROM sp)
+  GROUP BY f.icao_origem)
+SELECT a.rotulo AS rota, s.otp AS saindo, c.otp AS chegando
+FROM saindo s JOIN chegando c ON s.ponta = c.ponta
+JOIN dim_aerodromo a ON a.icao = s.ponta
+WHERE s.n >= 1500 AND c.n >= 1500
+ORDER BY (c.otp - s.otp) DESC
+LIMIT 14`
+  },
+  {
+    p: "Quais aeroportos movimentam mais?",
+    grafico: "mapa", x: "longitude", y: "latitude", unidade: "voos",
+    titulo: "Partidas por aeródromo",
+    sql: `SELECT a.icao, a.rotulo AS local, a.latitude, a.longitude,
+       SUM(f.voos) AS voos,
+       100.0 * SUM(f.partidas_pontuais) / NULLIF(SUM(f.realizados), 0) AS otp
+FROM fato_voos f JOIN dim_aerodromo a ON f.icao_origem = a.icao
+WHERE a.latitude IS NOT NULL
+GROUP BY a.icao, a.rotulo, a.latitude, a.longitude
+HAVING SUM(f.voos) >= 900
+ORDER BY voos DESC
+LIMIT 80`
+  },
+  {
+    p: "Nacionais atrasam menos que estrangeiras?",
+    grafico: "barra_vertical", x: "grupo", y: "atraso", unidade: "min",
+    titulo: "Atraso médio de partida, faixa plausível",
+    aviso: "Restrito a atrasos entre -60 e 1.440 min: a fonte tem timestamps invertidos que produzem médias impossíveis.",
+    sql: `SELECT CASE WHEN e.nacional THEN 'Nacionais' ELSE 'Estrangeiras' END AS grupo,
+       SUM(f.soma_atraso_plausivel) / NULLIF(SUM(f.com_atraso_plausivel), 0) AS atraso,
+       100.0 * SUM(f.partidas_pontuais) / NULLIF(SUM(f.realizados), 0) AS otp,
+       SUM(f.realizados) AS realizados
+FROM fato_voos f JOIN dim_empresa e ON f.icao_empresa = e.icao_empresa
+GROUP BY 1
+ORDER BY atraso DESC
+LIMIT 5`
+  },
+  {
+    p: "Vale a pena voar de madrugada?",
+    grafico: "barra_vertical", x: "periodo", y: "otp", unidade: "%",
+    titulo: "OTP de partida por período do dia",
+    sql: `SELECT f.periodo_partida AS periodo,
+       100.0 * SUM(f.partidas_pontuais) / NULLIF(SUM(f.realizados), 0) AS otp,
+       SUM(f.realizados) AS realizados
+FROM fato_voos f
+WHERE f.periodo_partida IS NOT NULL
+GROUP BY f.periodo_partida
+ORDER BY otp DESC
+LIMIT 6`
+  }
+];
+
+const logEl = document.getElementById("log");
+const chipsEl = document.getElementById("chips");
+const stateEl = document.getElementById("agentState");
+const footEl = document.getElementById("agentFoot");
+const qEl = document.getElementById("q");
+const sendBtn = document.getElementById("send");
+const stopBtn = document.getElementById("stop");
+const loadbar = document.getElementById("loadbar");
+
+/* A conversa que o modelo ve. Guarda o SQL de cada turno, para a pergunta seguinte
+   reaproveitar ("e em fevereiro?"), e as primeiras linhas, para as perguntas de
+   interpretacao ("o que isso significa?") terem numeros reais em vez de inventar. */
+let historico = [];
+const MAX_HISTORICO = 6;
+
+function registrar(turno) {
+  historico.push(turno);
+  if (historico.length > MAX_HISTORICO) historico = historico.slice(-MAX_HISTORICO);
+}
+
+let con = null;          /* conexão DuckDB */
+let temLLM = false;      /* Worker ou capability disponível */
+let sampleFn = null;     /* fallback: window.claude dentro do Claude */
+let ctl = null, busy = false;
+
+/* --------------------------------------------------------------------------
+   DuckDB-WASM
+   -------------------------------------------------------------------------- */
+
+async function abrirBanco() {
+  const duckdb = await import(DUCKDB_ESM);
+  const bundle = await duckdb.selectBundle({
+    mvp: { mainModule: DUCKDB_DIST + "duckdb-mvp.wasm", mainWorker: DUCKDB_DIST + "duckdb-browser-mvp.worker.js" },
+    eh:  { mainModule: DUCKDB_DIST + "duckdb-eh.wasm",  mainWorker: DUCKDB_DIST + "duckdb-browser-eh.worker.js" }
+  });
+
+  /* Um Worker não pode ser instanciado direto de outra origem. O contorno padrão é
+     embrulhar o importScripts num blob da própria origem. */
+  const shim = URL.createObjectURL(
+    new Blob([`importScripts("${bundle.mainWorker}");`], { type: "text/javascript" })
+  );
+  const w = new Worker(shim);
+  const db = new duckdb.AsyncDuckDB(new duckdb.ConsoleLogger(duckdb.LogLevel.WARNING), w);
+  await db.instantiate(bundle.mainModule, bundle.pthreadWorker);
+  URL.revokeObjectURL(shim);
+
+  await Promise.all(TABELAS.map(async t => {
+    const r = await fetch(`dados/${t}.parquet`);
+    if (!r.ok) throw new Error(`dados/${t}.parquet: HTTP ${r.status}`);
+    await db.registerFileBuffer(`${t}.parquet`, new Uint8Array(await r.arrayBuffer()));
+  }));
+
+  const c = await db.connect();
+  for (const t of TABELAS) {
+    await c.query(`CREATE VIEW ${t} AS ${SELECTS[t] || "SELECT *"} FROM read_parquet('${t}.parquet')`);
+  }
+  return c;
+}
+
+/* A dimensão de aeródromos vem do cadastro da ANAC, que só cobre aeródromo brasileiro:
+   85 dos 224 não têm nome, município nem UF — 79 estrangeiros (Santiago, Ezeiza, Miami,
+   Lisboa…) e 6 brasileiros que faltam no cadastro (SBIZ, SNCL, SBUY, SSOU, SBCR, SDLO).
+   São 10,5% das partidas. Sem um rótulo de reserva, qualquer gráfico por aeroporto
+   mostraria "null" nessas barras. */
+const SELECTS = {
+  dim_aerodromo: "SELECT *, COALESCE(municipio, nome, icao) AS rotulo"
+};
+
+async function rodar(sql) {
+  const t0 = performance.now();
+  const res = await con.query(sql);
+  /* Normaliza os tipos do Arrow para number/string.
+     COUNT(*) vem como BigInt; SUM() de coluna inteira vem como objeto INT128 — se ficasse
+     objeto (ou virasse string), toda deteção de medida, ordenação e alinhamento numérico
+     falharia em silêncio. As contagens aqui não passam de alguns milhões, bem abaixo do
+     limite de precisão de um number. */
+  const linhas = res.toArray().map(r => {
+    const o = { ...r.toJSON() };
+    for (const k in o) {
+      const v = o[k];
+      if (typeof v === "bigint") o[k] = Number(v);
+      else if (v !== null && typeof v === "object") {
+        const s = String(v);
+        const n = Number(s);
+        o[k] = (s !== "" && Number.isFinite(n)) ? n : s;      /* datas e structs seguem texto */
+      }
+    }
+    return o;
+  });
+  return { linhas, ms: Math.round(performance.now() - t0) };
+}
+
+/* --------------------------------------------------------------------------
+   Modelo (via Worker)
+   -------------------------------------------------------------------------- */
+
+/* O free tier do Gemini devolve 503 de forma intermitente: a mesma pergunta que falha
+   agora responde em 6 s dez segundos depois — medido. Um visitante que recebe erro na
+   primeira pergunta vai embora, então a página tenta de novo sozinha antes de desistir.
+   Só em 503: 429 é cota do dia e não melhora esperando dois segundos. */
+async function pedirPlano(pergunta, signal, avisar) {
+  if (WORKER) {
+    for (let tentativa = 1; tentativa <= 2; tentativa++) {
+      const r = await fetch(WORKER + "/consulta", {
+        method: "POST", signal,
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ pergunta, historico })
+      });
+      const j = await r.json();
+      if (r.ok) return j;
+
+      if (r.status === 503 && tentativa === 1) {
+        avisar?.("A IA está ocupada. Tentando de novo…");
+        await new Promise(ok => setTimeout(ok, 2500));
+        if (signal.aborted) throw Object.assign(new Error("cancelado"), { name: "AbortError" });
+        continue;
+      }
+      throw new Error(j.erro || `HTTP ${r.status}`);
+    }
+  }
+  /* Sem Worker: dentro do Claude o próprio visualizador serve. Aqui o prompt vive no
+     cliente por força — não há servidor para guardá-lo. */
+  const conversa = historico.length
+    ? "\n\nCONVERSA ATÉ AGORA — a pergunta nova pode se referir a isto:\n"
+      + historico.map((h, n) =>
+          `[${n + 1}] Pergunta: ${h.pergunta}`
+          + (h.sql ? `\n    SQL: ${h.sql}` : "")
+          + (h.amostra ? `\n    Resultado: ${JSON.stringify(h.amostra).slice(0, 400)}` : "")
+          + (h.resposta ? `\n    Você respondeu: ${h.resposta.slice(0, 220)}` : "")
+        ).join("\n")
+    : "";
+  const { text } = await sampleFn(
+    [{ role: "user", content: PROMPT_SQL + conversa + "\n\nPergunta: " + pergunta }],
+    { cache: false, signal, modelTier: "default" }
+  );
+  const bruto = text.replace(/^[^{]*/, "").replace(/[^}]*$/, "");
+  return JSON.parse(bruto);
+}
+
+async function narrar(pergunta, plano, linhas, alvo, signal) {
+  const carga = { pergunta, sql: plano.sql, linhas: linhas.slice(0, 40),
+                  aviso: plano.aviso || "", historico };
+
+  if (WORKER) {
+    const r = await fetch(WORKER + "/narrar", {
+      method: "POST", signal,
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(carga)
+    });
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).erro || `HTTP ${r.status}`);
+    const leitor = r.body.getReader();
+    const dec = new TextDecoder();
+    let sobra = "", acc = "";
+    for (;;) {
+      const { done, value } = await leitor.read();
+      if (done) break;
+      sobra += dec.decode(value, { stream: true });
+      const ls = sobra.split("\n"); sobra = ls.pop() || "";
+      for (const l of ls) {
+        if (!l.startsWith("data:")) continue;
+        try {
+          const ev = JSON.parse(l.slice(5).trim());
+          if (ev.erro) throw new Error(ev.erro);
+          if (ev.t) { acc += ev.t; fala(alvo, acc); aoFundo(); }
+        } catch (e) { if (e instanceof Error && e.message !== "Unexpected end of JSON input") throw e; }
+      }
+    }
+    return acc;
+  }
+
+  const { text } = await sampleFn(
+    [{ role: "user", content: PROMPT_TEXTO + "\n\n" + JSON.stringify(carga) }],
+    { cache: false, signal, modelTier: "default", onText: ({ text }) => { fala(alvo, text); aoFundo(); } }
+  );
+  return text;
+}
+
+/* Prompts só para o caminho sem Worker (dentro do Claude). Com Worker eles moram no
+   servidor — se viessem do cliente, o endpoint seria um relay de LLM aberto. */
+const PROMPT_SQL = `Traduza a pergunta em UMA consulta DuckDB e devolva SÓ um objeto JSON com
+as chaves sql, grafico, x, y, unidade, titulo, aviso.
+
+Tabelas: fato_voos(ano_mes, icao_empresa, icao_origem, icao_destino, situacao_voo,
+periodo_partida, fim_de_semana, codigo_tipo_linha, voos, realizados, cancelados,
+partidas_pontuais, chegadas_pontuais, partidas_atrasadas, partidas_severas,
+com_atraso_partida, soma_atraso_partida, com_atraso_chegada, soma_atraso_chegada,
+com_duracao, soma_duracao, com_atraso_plausivel, soma_atraso_plausivel) — TODAS as medidas
+são aditivas, agregue com SUM, NUNCA com AVG;
+dim_empresa(icao_empresa, nome, iata, servico, origem_cadastro, situacao, voos_no_periodo, nacional);
+dim_aerodromo(icao, nome, municipio, uf, rotulo, latitude, longitude, partidas, chegadas)
+— use SEMPRE rotulo para nomear aeroporto: municipio e nome sao NULL em 85 dos 224
+(estrangeiros e 6 brasileiros fora do cadastro), 10,5% das partidas;
+dim_rota(icao_origem, icao_destino, distancia_km, faixa_distancia, origem_igual_destino, voos);
+dim_tempo(ano_mes, ano, mes, nome_mes, trimestre, estacao, dias_com_voo, voos, ordem).
+
+OTP = 100.0*SUM(partidas_pontuais)/NULLIF(SUM(realizados),0). Pontual = atraso <= 15 min.
+Cancelamento = 100.0*SUM(cancelados)/NULLIF(SUM(voos),0).
+Atraso médio = SUM(soma_atraso_partida)/NULLIF(SUM(com_atraso_partida),0).
+
+Problemas da fonte: ano_mes IS NULL em 30.800 voos (filtre em pergunta geral de pontualidade
+e diga que filtrou); atrasos implausíveis — em ranking de atraso use soma_atraso_plausivel;
+dim_rota.origem_igual_destino marca rotas de 0 km; em ranking filtre HAVING SUM(realizados)>=500;
+o motivo dos cancelamentos não existe na fonte.
+
+Um único SELECT, sempre com LIMIT <= 100. grafico é um de: barra_horizontal, barra_vertical,
+linha, dispersao, halteres, mapa, tabela. x e y são apelidos do SELECT. unidade é %, min, voos, km ou "".`;
+
+const PROMPT_TEXTO = `Você é analista de dados do setor aéreo. Recebe um JSON com a pergunta, o SQL
+executado e as linhas que voltaram. Responda em português do Brasil, no máximo 4 frases,
+começando pela resposta. Cite números com unidade e formato brasileiro (vírgula decimal, ponto
+de milhar). Use SÓ números presentes nas linhas — nunca estime nem complete. Se vier "aviso",
+incorpore numa frase. Sem saudação, sem repetir a pergunta.`;
+
+/* --------------------------------------------------------------------------
+   Gráficos genéricos — uma série, azul; rótulos diretos em todos
+   (a paleta tem slots abaixo de 3:1, então o rótulo é obrigatório).
+   -------------------------------------------------------------------------- */
+
+const W = 760;
+
+function svgIn(host, h) {
+  const s = svgEl("svg", { viewBox: `0 0 ${W} ${h}`, role: "img" });
+  host.textContent = ""; host.appendChild(s);
+  return s;
+}
+const ehNum = v => typeof v === "number" && isFinite(v);
+function val(l, k) { const v = l[k]; return ehNum(v) ? v : Number(v); }
+function rot(v, u) {
+  if (!ehNum(v)) return String(v ?? "—");
+  if (u === "%") return pf(v, 1) + "%";
+  if (u === "min") return pf(v, 1) + " min";
+  if (u === "km") return nf(Math.round(v)) + " km";
+  return nf(Math.round(v));
+}
+/* Colunas de contexto para o tooltip: tudo que não é eixo. */
+function extras(l, plano) {
+  return Object.keys(l)
+    .filter(k => k !== plano.x && k !== plano.y && !/latitude|longitude/.test(k))
+    .slice(0, 4)
+    .map(k => [k.replace(/_/g, " "), ehNum(l[k]) ? nf(Math.round(l[k] * 10) / 10) : String(l[k] ?? "—")]);
+}
+
+function gBarraH(host, ls, plano) {
+  const rotW = 168, barX = rotW + 8, valW = 74;
+  const h = 10 + ls.length * 23 + 6;
+  const s = svgIn(host, h);
+  const max = Math.max(...ls.map(l => val(l, plano.x)), 0) || 1;
+  const esc = (W - barX - valW) / max;
+
+  ls.forEach((l, i) => {
+    const y = 10 + i * 23, v = val(l, plano.x), lw = Math.max(2, v * esc);
+    const nome = String(l[plano.y] ?? "—");
+    txt(s, rotW, y + 9, nome.length > 30 ? nome.slice(0, 29) + "…" : nome,
+      { anchor: "end", size: 11.5, fill: "var(--ink-2)" });
+    const b = svgEl("rect", { x: barX, y, width: lw, height: 14, rx: 3, fill: "var(--s1)" });
+    s.appendChild(b);
+    hoverable(b, nome, [[plano.x.replace(/_/g, " "), rot(v, plano.unidade)], ...extras(l, plano)]);
+    txt(s, barX + lw + 7, y + 9, rot(v, plano.unidade),
+      { size: 11, mono: true, fill: "var(--ink-2)", weight: 500 });
+  });
+  return s;
+}
+
+function gBarraV(host, ls, plano) {
+  const h = 200, base = h - 34, topo = 16;
+  const s = svgIn(host, h);
+  const max = Math.max(...ls.map(l => val(l, plano.y)), 0) || 1;
+  const passo = W / ls.length, larg = Math.min(64, passo - 14);
+
+  s.appendChild(svgEl("line", { x1: 0, y1: base, x2: W, y2: base, stroke: "var(--axis)", "stroke-width": 1 }));
+
+  ls.forEach((l, i) => {
+    const v = val(l, plano.y);
+    const alt = Math.max(2, (v / max) * (base - topo));
+    const x = i * passo + (passo - larg) / 2;
+    const b = svgEl("rect", { x, y: base - alt, width: larg, height: alt, rx: 3, fill: "var(--s1)" });
+    s.appendChild(b);
+    const nome = String(l[plano.x] ?? "—");
+    hoverable(b, nome, [[plano.y.replace(/_/g, " "), rot(v, plano.unidade)], ...extras(l, plano)]);
+    txt(s, x + larg / 2, base - alt - 6, rot(v, plano.unidade),
+      { anchor: "middle", size: 11.5, mono: true, weight: 600, fill: "var(--ink)" });
+    txt(s, x + larg / 2, base + 15, nome.length > 16 ? nome.slice(0, 15) + "…" : nome,
+      { anchor: "middle", size: 11.5, fill: "var(--ink-2)" });
+  });
+  return s;
+}
+
+function gLinha(host, ls, plano) {
+  const h = 210, base = h - 32, topo = 18, padL = 8, padR = 46;
+  const s = svgIn(host, h);
+  const vs = ls.map(l => val(l, plano.y));
+  const lo = Math.min(...vs), hi = Math.max(...vs);
+  const min = lo - (hi - lo) * 0.25 || 0, max = hi + (hi - lo) * 0.2 || 1;
+  const px = i => padL + (i * (W - padL - padR)) / Math.max(1, ls.length - 1);
+  const py = v => base - ((v - min) / (max - min)) * (base - topo);
+
+  const d = ls.map((l, i) => `${i ? "L" : "M"}${px(i).toFixed(1)},${py(vs[i]).toFixed(1)}`).join("");
+  s.appendChild(svgEl("path", {
+    d: `${d}L${px(ls.length - 1)},${base}L${px(0)},${base}Z`, fill: "var(--s1-wash)", stroke: "none"
+  }));
+  s.appendChild(svgEl("path", { d, fill: "none", stroke: "var(--s1)", "stroke-width": 2, "stroke-linejoin": "round" }));
+
+  /* Rótulo direto só nos extremos — nunca um número em cada ponto. */
+  const iMin = vs.indexOf(lo), iMax = vs.indexOf(hi);
+  ls.forEach((l, i) => {
+    const c = svgEl("circle", {
+      cx: px(i), cy: py(vs[i]), r: 4.5,
+      fill: "var(--surface)", stroke: "var(--s1)", "stroke-width": 2
+    });
+    s.appendChild(c);
+    hoverable(c, String(l[plano.x] ?? "—"),
+      [[plano.y.replace(/_/g, " "), rot(vs[i], plano.unidade)], ...extras(l, plano)]);
+    if (i === iMin || i === iMax) {
+      txt(s, px(i), py(vs[i]) + (i === iMax ? -11 : 17), rot(vs[i], plano.unidade),
+        { anchor: "middle", size: 11.5, mono: true, weight: 600, fill: "var(--ink)" });
+    }
+    if (i === 0 || i === ls.length - 1 || ls.length <= 13) {
+      txt(s, px(i), base + 15, String(l[plano.x] ?? "").slice(-5),
+        { anchor: "middle", size: 10.5, mono: true });
+    }
+  });
+  return s;
+}
+
+function gHalteres(host, ls, plano) {
+  const rotW = 150, x0 = rotW + 54, x1 = W - 54;
+  const topo = 34;                       /* faixa reservada para a legenda */
+  const h = topo + ls.length * 25 + 8;
+  const s = svgIn(host, h);
+  const todos = ls.flatMap(l => [val(l, plano.x), val(l, plano.y)]);
+  const lo = Math.min(...todos), hi = Math.max(...todos);
+  const px = v => x0 + ((v - lo) / (hi - lo || 1)) * (x1 - x0);
+
+  ls.forEach((l, i) => {
+    const y = topo + i * 25, a = val(l, plano.x), b = val(l, plano.y);
+    const nome = String(l[Object.keys(l).find(k => k !== plano.x && k !== plano.y)] ?? "—");
+    txt(s, rotW, y + 4, nome.length > 26 ? nome.slice(0, 25) + "…" : nome,
+      { anchor: "end", size: 11.5, fill: "var(--ink-2)" });
+    s.appendChild(svgEl("line", {
+      x1: px(a), y1: y, x2: px(b), y2: y, stroke: "var(--axis)", "stroke-width": 2
+    }));
+    [[a, "var(--s1)", plano.x], [b, "var(--s2)", plano.y]].forEach(([v, cor, k]) => {
+      const c = svgEl("circle", { cx: px(v), cy: y, r: 5, fill: cor, stroke: "var(--surface)", "stroke-width": 2 });
+      s.appendChild(c);
+      hoverable(c, nome, [[k.replace(/_/g, " "), rot(v, plano.unidade)]]);
+    });
+    txt(s, px(Math.min(a, b)) - 8, y + 4, rot(Math.min(a, b), plano.unidade),
+      { anchor: "end", size: 10.5, mono: true });
+    txt(s, px(Math.max(a, b)) + 8, y + 4, rot(Math.max(a, b), plano.unidade),
+      { size: 10.5, mono: true });
+  });
+
+  /* Duas séries: legenda sempre presente. */
+  [[plano.x, "var(--s1)", 0], [plano.y, "var(--s2)", 1]].forEach(([k, cor, i]) => {
+    s.appendChild(svgEl("rect", { x: rotW + 4 + i * 96, y: 2, width: 9, height: 9, rx: 2, fill: cor }));
+    txt(s, rotW + 17 + i * 96, 10, k.replace(/_/g, " "), { size: 10.5, fill: "var(--ink-2)" });
+  });
+  return s;
+}
+
+function gDispersao(host, ls, plano) {
+  const h = 300, base = h - 32, topo = 16, padL = 44, padR = 16;
+  const s = svgIn(host, h);
+  const xs = ls.map(l => val(l, plano.x)), ys = ls.map(l => val(l, plano.y));
+  const xlo = Math.min(...xs), xhi = Math.max(...xs);
+  const ylo = Math.min(...ys), yhi = Math.max(...ys);
+  const px = v => padL + ((v - xlo) / (xhi - xlo || 1)) * (W - padL - padR);
+  const py = v => base - ((v - ylo) / (yhi - ylo || 1)) * (base - topo);
+  const rotulo = Object.keys(ls[0] || {}).find(k => k !== plano.x && k !== plano.y && !ehNum(ls[0][k]));
+
+  s.appendChild(svgEl("line", { x1: padL, y1: base, x2: W, y2: base, stroke: "var(--axis)" }));
+  ls.forEach(l => {
+    const c = svgEl("circle", {
+      cx: px(val(l, plano.x)), cy: py(val(l, plano.y)), r: 5,
+      fill: "var(--s1)", stroke: "var(--surface)", "stroke-width": 2, opacity: .85
+    });
+    s.appendChild(c);
+    hoverable(c, rotulo ? String(l[rotulo]) : "ponto", [
+      [plano.x.replace(/_/g, " "), rot(val(l, plano.x), "")],
+      [plano.y.replace(/_/g, " "), rot(val(l, plano.y), plano.unidade)], ...extras(l, plano)
+    ]);
+  });
+  txt(s, padL, base + 16, `${plano.x.replace(/_/g, " ")} →`, { size: 10.5 });
+  txt(s, 4, topo, `↑ ${plano.y.replace(/_/g, " ")}`, { size: 10.5 });
+  return s;
+}
+
+function gMapa(host, ls, plano) {
+  const h = 420;
+  const s = svgIn(host, h);
+  const LAT0 = 4.5, LAT1 = -31.5, LON0 = -70, LON1 = -31;
+  const px = lon => ((lon - LON0) / (LON1 - LON0)) * W;
+  const py = lat => ((LAT0 - lat) / (LAT0 - LAT1)) * h;
+  const kv = Object.keys(ls[0] || {}).find(k => /voo|partida|total/.test(k) && ehNum(ls[0][k])) || "voos";
+  const max = Math.max(...ls.map(l => val(l, kv)), 1);
+  const rotulo = Object.keys(ls[0] || {}).find(k => !ehNum(ls[0][k]) && !/icao/.test(k)) || "icao";
+
+  /* Dois passes: todos os círculos, depois os rótulos — senão um círculo posterior
+     cobre o rótulo de um anterior. */
+  const marcados = [];
+  [...ls].sort((a, b) => val(b, kv) - val(a, kv)).forEach((l, i) => {
+    const lat = val(l, "latitude"), lon = val(l, "longitude");
+    if (!ehNum(lat) || !ehNum(lon)) return;
+    const r = 3 + Math.sqrt(val(l, kv) / max) * 23;
+    const c = svgEl("circle", {
+      cx: px(lon).toFixed(1), cy: py(lat).toFixed(1), r: r.toFixed(1),
+      fill: "var(--s1)", "fill-opacity": .32, stroke: "var(--s1)", "stroke-width": 1.5
+    });
+    s.appendChild(c);
+    hoverable(c, String(l[rotulo] ?? l.icao ?? "—"),
+      [[kv.replace(/_/g, " "), nf(Math.round(val(l, kv)))], ...extras(l, plano)]);
+    if (i < 10) marcados.push({ x: px(lon), y: py(lat), r, t: String(l[rotulo] ?? l.icao ?? "") });
+  });
+
+  /* Rótulo com halo, e pulando quem cairia em cima de um já colocado. */
+  const postos = [];
+  marcados.forEach(m => {
+    const x = m.x + m.r + 5, y = m.y + 4;
+    if (postos.some(p => Math.abs(p.x - x) < 90 && Math.abs(p.y - y) < 13)) return;
+    const t = txt(s, x, y, m.t, { size: 11, fill: "var(--ink-2)", weight: 500 });
+    t.setAttribute("stroke", "var(--surface)");
+    t.setAttribute("stroke-width", "3.5");
+    t.setAttribute("paint-order", "stroke");
+    postos.push({ x, y });
+  });
+  txt(s, 4, h - 6, "Projeção equirretangular. Área do círculo ∝ volume.", { size: 10 });
+  return s;
+}
+
+function gTabela(host, ls) {
+  const cols = Object.keys(ls[0] || {});
+  const t = document.createElement("table");
+  t.className = "restable";
+  const thead = t.createTHead().insertRow();
+  cols.forEach(c => { const th = document.createElement("th"); th.textContent = c.replace(/_/g, " "); thead.appendChild(th); });
+  const tb = t.createTBody();
+  ls.slice(0, 60).forEach(l => {
+    const tr = tb.insertRow();
+    cols.forEach(c => {
+      const td = tr.insertCell();
+      const v = l[c];
+      if (ehNum(v)) { td.className = "num"; td.textContent = Number.isInteger(v) ? nf(v) : pf(v, 1); }
+      else td.textContent = String(v ?? "—");
+    });
+  });
+  host.textContent = ""; host.appendChild(t);
+  return t;
+}
+
+const GRAFICOS = {
+  barra_horizontal: gBarraH, barra_vertical: gBarraV, linha: gLinha,
+  dispersao: gDispersao, halteres: gHalteres, mapa: gMapa
+};
+
+function desenhar(host, ls, plano) {
+  const f = GRAFICOS[plano.grafico];
+  /* Sem dados suficientes, ou eixo que não existe no resultado: tabela. */
+  if (!f || ls.length < 2 || !(plano.x in ls[0]) || !(plano.y in ls[0])) return gTabela(host, ls);
+  try { return f(host, ls, plano); } catch (e) { console.warn("gráfico:", e); return gTabela(host, ls); }
+}
+
+/* --------------------------------------------------------------------------
+   Montagem de um turno
+   -------------------------------------------------------------------------- */
+
+/* Estado de espera do balão: o texto mais três pontos pulsando.
+
+   Diz "Pensando", não "Escrevendo o SQL", porque neste momento o modelo ainda não
+   decidiu se a pergunta vira consulta ou resposta em prosa — anunciar SQL afirmaria
+   algo que pode não acontecer. */
+function pensando(el, txt) {
+  el.classList.add("pensando");
+  el.textContent = "";
+  const t = document.createElement("span");
+  t.textContent = txt;
+  const pontos = document.createElement("span");
+  pontos.className = "pontos";
+  for (let i = 0; i < 3; i++) pontos.appendChild(document.createElement("i"));
+  el.append(t, pontos);
+}
+
+/* Todo texto definitivo passa por aqui, para os pontos saírem junto. */
+function fala(el, txt) {
+  el.classList.remove("pensando");
+  el.textContent = txt;
+}
+
+function addTurn(who, text, cls) {
+  const d = document.createElement("div");
+  d.className = "turn " + (cls || "bot");
+  const w = document.createElement("div"); w.className = "who"; w.textContent = who;
+  const b = document.createElement("div"); b.className = "bubble pre"; b.textContent = text;
+  d.append(w, b); logEl.appendChild(d);
+  return b;
+}
+
+const PALAVRAS_SQL = /\b(SELECT|FROM|WHERE|GROUP BY|ORDER BY|HAVING|LIMIT|JOIN|LEFT|INNER|ON|AND|OR|NOT|AS|SUM|COUNT|ROUND|NULLIF|COALESCE|CASE|WHEN|THEN|ELSE|END|DESC|ASC|WITH|IS|NULL|BETWEEN|IN|UNION ALL|DISTINCT)\b/gi;
+
+/* Monta com nós de DOM, não innerHTML: o SQL vem do modelo. */
+function pintarSql(sql) {
+  const pre = document.createElement("div");
+  pre.className = "sqlbox";
+  let i = 0;
+  for (const m of sql.matchAll(PALAVRAS_SQL)) {
+    if (m.index > i) pre.appendChild(document.createTextNode(sql.slice(i, m.index)));
+    const b = document.createElement("b"); b.textContent = m[0];
+    pre.appendChild(b);
+    i = m.index + m[0].length;
+  }
+  if (i < sql.length) pre.appendChild(document.createTextNode(sql.slice(i)));
+  return pre;
+}
+
+function blocoAviso(texto) {
+  const d = document.createElement("div");
+  d.className = "aviso";
+  const i = svgEl("svg", { viewBox: "0 0 16 16", "aria-hidden": "true" });
+  i.appendChild(svgEl("path", {
+    d: "M8 1.5 15 14H1L8 1.5Zm0 4.2v4m0 2.1v.1",
+    fill: "none", stroke: "var(--warning)", "stroke-width": 1.6, "stroke-linecap": "round"
+  }));
+  const p = document.createElement("span"); p.textContent = texto;
+  d.append(i, p);
+  return d;
+}
+
+function detalhe(rotulo, conteudo) {
+  const d = document.createElement("details");
+  const s = document.createElement("summary"); s.textContent = rotulo;
+  d.append(s, conteudo);
+  return d;
+}
+
+/* Frase de reserva quando não há modelo: sai da primeira linha, não de um texto fixo.
+   Coordenada nunca é medida — num mapa, plano.x é a longitude e citá-la não diz nada. */
+function frase(plano, ls) {
+  if (!ls.length) return "A consulta não retornou linhas.";
+  const l = ls[0];
+  const coord = k => /latitude|longitude/.test(k);
+  const chave = Object.keys(l).find(k => !ehNum(l[k]));
+  const medida = [plano.y, plano.x].find(k => ehNum(l[k]) && !coord(k))
+    || Object.keys(l).find(k => ehNum(l[k]) && !coord(k));
+  if (!medida) return `${ls.length} ${ls.length === 1 ? "linha" : "linhas"}.`;
+  const un = (medida === plano.x || medida === plano.y) ? plano.unidade : "";
+  const valor = rot(l[medida], un);
+  if (ls.length === 1) return chave ? `${l[chave]}: ${valor}.` : `${valor}.`;
+  return (chave ? `No topo, ${l[chave]} com ${valor}` : `Maior valor: ${valor}`)
+    + `. São ${nf(ls.length)} linhas — o SQL e a tabela estão abaixo.`;
+}
+
+async function ask(pergunta, planoPronto) {
+  if (busy) return;
+  busy = true;
+  sendBtn.disabled = true;
+  stopBtn.hidden = false;
+  scroller.classList.remove("vazio", "centrado");   /* a conversa começou: flui do topo */
+  addTurn("Você", pergunta, "me");
+
+  const res = document.createElement("div");
+  res.className = "turn bot";
+  const who = document.createElement("div"); who.className = "who"; who.textContent = "Agente";
+  const texto = document.createElement("div"); texto.className = "bubble pre";
+  pensando(texto, con ? (planoPronto ? "Consultando" : "Pensando")
+                      : "Carregando o banco no seu navegador");
+  res.append(who, texto);
+  logEl.appendChild(res);
+  aoFundo(true);
+
+  ctl = new AbortController();
+  try {
+    await garantirBanco();
+    if (!planoPronto) pensando(texto, "Pensando");
+    const plano = planoPronto
+      || await pedirPlano(pergunta, ctl.signal, m => pensando(texto, m.replace(/…$/, "")));
+
+    /* Nem toda pergunta é consulta. "o que é você?", "o que isso significa?", "obrigado"
+       — para essas o modelo devolve tipo "conversa" e a resposta em prosa, e aqui a
+       renderização para no texto: sem gráfico, sem "ver o SQL", sem "1 linha · 5 ms".
+       Forçar tudo a virar SQL fazia o modelo inventar um SELECT que retornava uma
+       mensagem de desculpa, apresentada com a aparência de dado consultado. */
+    if (plano.tipo === "conversa") {
+      fala(texto, plano.resposta);
+      registrar({ pergunta, resposta: plano.resposta });
+      aoFundo();
+      return;
+    }
+
+    pensando(texto, "Consultando");
+    const { linhas, ms } = await rodar(plano.sql);
+
+    /* Gráfico, SQL e tabela num bloco próprio, colado embaixo do balão: os dois
+       formam um cartão só, e o gráfico usa a largura inteira do thread. */
+    const corpo = document.createElement("div");
+    corpo.className = "res-corpo";
+    res.classList.add("res");   /* agora sim: o balão e o corpo formam um cartão */
+    res.appendChild(corpo);
+
+    if (plano.titulo) {
+      const t = document.createElement("p"); t.className = "res-title"; t.textContent = plano.titulo;
+      corpo.appendChild(t);
+    }
+    if (linhas.length) {
+      const chart = document.createElement("div"); chart.className = "res-chart";
+      corpo.appendChild(chart);
+      desenhar(chart, linhas, plano);
+    }
+    const meta = document.createElement("p");
+    meta.className = "res-meta";
+    meta.textContent = `${nf(linhas.length)} ${linhas.length === 1 ? "linha" : "linhas"} · ${ms} ms · DuckDB no seu navegador`;
+    corpo.appendChild(meta);
+
+    if (plano.aviso) corpo.appendChild(blocoAviso(plano.aviso));
+    corpo.appendChild(detalhe("ver o SQL", pintarSql(plano.sql)));
+    if (linhas.length) {
+      const tab = document.createElement("div");
+      gTabela(tab, linhas);
+      corpo.appendChild(detalhe(`ver as ${nf(linhas.length)} linhas`, tab));
+    }
+    /* Só agora o bloco tem a altura final: rolar antes deixava o gráfico fora da tela. */
+    aoFundo();
+
+    /* Pergunta pronta já traz a consulta escrita: responde da própria tabela, sem
+       chamar o modelo. É o que a interface promete, e mantém as chips instantâneas e
+       de graça — o orçamento de IA fica para o texto livre. */
+    if (temLLM && !planoPronto) {
+      pensando(texto, "Escrevendo");
+      await narrar(pergunta, plano, linhas, texto, ctl.signal);
+    } else {
+      fala(texto, frase(plano, linhas));
+    }
+
+    /* O turno entra na conversa com o SQL e as primeiras linhas: é o que permite
+       "e em fevereiro?" reaproveitar a consulta e "o que isso significa?" falar dos
+       números certos em vez de inventar. */
+    registrar({ pergunta, sql: plano.sql, amostra: linhas.slice(0, 3),
+                total: linhas.length, resposta: texto.textContent });
+    aoFundo();
+  } catch (e) {
+    if (e.name === "AbortError") {
+      fala(texto, "Interrompido.");
+    } else {
+      fala(texto, String(e.message || e));
+      console.error(e);
+      /* O free tier do Gemini congestiona, e aí a resposta certa é tentar de novo — não
+         deixar o visitante olhando uma mensagem de erro sem saída. */
+      const btn = document.createElement("button");
+      btn.type = "button"; btn.className = "chip";
+      btn.textContent = "tentar de novo";
+      btn.style.marginTop = "8px";
+      btn.addEventListener("click", () => {
+        res.previousElementSibling?.remove();   /* a bolha da pergunta, que ask() recria */
+        res.remove();
+        ask(pergunta, planoPronto);
+      });
+      res.appendChild(btn);
+    }
+  } finally {
+    busy = false; sendBtn.disabled = false; stopBtn.hidden = true; ctl = null;
+  }
+}
+
+sendBtn.addEventListener("click", () => {
+  const v = qEl.value.trim();
+  if (!v) return;
+  if (!temLLM) { footEl.textContent = "O texto livre precisa de um modelo configurado. Use as perguntas prontas acima."; return; }
+  qEl.value = "";
+  ask(v);
+});
+qEl.addEventListener("keydown", e => {
+  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendBtn.click(); }
+});
+stopBtn.addEventListener("click", () => ctl && ctl.abort());
+
+/* --------------------------------------------------------------------------
+   Arranque
+   -------------------------------------------------------------------------- */
+
+/* Uma tentativa só, compartilhada: cliques simultâneos aguardam a mesma promessa. */
+let abrindo = null;
+function garantirBanco() {
+  if (!abrindo) {
+    estado("carregando o banco…");
+    loadbar.hidden = false;
+    abrindo = abrirBanco().then(
+      c => { con = c; loadbar.hidden = true; estado(""); return c; },
+      e => {
+        abrindo = null;                 /* permite nova tentativa */
+        loadbar.hidden = true;
+        estado("banco indisponível");
+        footEl.textContent = "Não consegui carregar o fato exportado da Gold. "
+          + "Os gráficos e números das outras seções não dependem dele.";
+        console.error(e);
+        throw new Error("O banco não carregou. Recarregue a página para tentar de novo.");
+      }
+    );
+  }
+  return abrindo;
+}
+/* Texto vazio esconde o indicador: "pronto" não informa nada que o visitante não veja. */
+function estado(txt) {
+  stateEl.textContent = txt;
+  stateEl.hidden = !txt;
+}
+
+(async () => {
+  if (WORKER) {
+    temLLM = true;
+  } else if (window.claude && window.claude.use) {
+    try { sampleFn = await window.claude.use("sample"); } catch (_) { sampleFn = null; }
+    temLLM = !!sampleFn;
+  }
+
+  loadbar.hidden = true;
+  estado(temLLM ? "" : "só perguntas prontas");
+
+  SUGESTOES.forEach(s => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "chip"; b.textContent = s.p;
+    b.addEventListener("click", () => ask(s.p, s));
+    chipsEl.appendChild(b);
+  });
+  chipsEl.hidden = false;
+
+  footEl.textContent = temLLM
+    ? "O modelo escreve o SQL; a consulta roda aqui, no seu navegador. "
+      + "As perguntas prontas respondem na hora, sem chamar o modelo."
+    : "As perguntas prontas rodam SQL de verdade no seu navegador. "
+      + "O texto livre precisa de um modelo configurado — ver agente/worker/README.md.";
+
+  /* O chat abre a página, então o banco é pedido já — mas fora do caminho do primeiro
+     desenho, para a abertura aparecer antes dos 7 MB do DuckDB. */
+  setTimeout(() => garantirBanco().catch(() => {}), 0);
+})();
+
+/* ==========================================================================
+   A PÁGINA
+
+   Os números da abertura vêm do manifest.json — 1,2 KB, chega antes dos 7 MB do
+   DuckDB. Nada está digitado no HTML: se o export mudar, a abertura muda.
+   ========================================================================== */
+
+function pintarIntro(m) {
+  const q = m.qualidade, t = m.tabelas;
+  const el = document.getElementById("intro");
+  el.textContent = "";
+
+  const trecho = (txt, cls) => {
+    const s = document.createElement(cls === "b" ? "b" : "span");
+    if (cls === "dim") s.className = "dim";
+    s.textContent = txt;
+    return s;
+  };
+
+  /* Frase corrida com os valores em destaque — lê como o agente se apresentando,
+     não como um painel de KPIs. */
+  const pedacos = [
+    ["Tenho ", null], [nf(q.total_voos), "b"], [" voos comerciais brasileiros, de ", null],
+    [nf(q.empresas), "b"], [" empresas, ligando ", null],
+    [nf(q.origens), "b"], [" aeroportos em ", null],
+    [nf(t.dim_rota.linhas), "b"], [" rotas. ", null],
+    ["Pontualidade na partida: ", null], [pct(q.otp_global), "b"], [". ", null],
+    ["Pergunte em português — eu escrevo o SQL e a consulta roda aqui, no seu navegador.", "dim"],
+  ];
+  for (const [txt, cls] of pedacos) el.appendChild(trecho(txt, cls));
+
+  const n = document.getElementById("nLinhas");
+  if (n) n.textContent = nf(t.fato_voos.linhas);
+}
+
+/* --------------------------------------------------------------------------
+   Alternar tema
+
+   O padrão é seguir o sistema: sem escolha guardada, nenhum atributo é posto e o
+   `@media (prefers-color-scheme)` do CSS decide. O clique grava `data-theme` no
+   <html>, que vence a media query — e é por isso que as regras escuras existem
+   nos dois escopos no CSS.
+
+   A escolha vai para o localStorage, que é por navegador e pode falhar em janela
+   privada ou com dados de site bloqueados: por isso toda leitura e escrita está
+   em try/catch, e a página funciona igual se nada for guardado.
+   -------------------------------------------------------------------------- */
+
+const CHAVE_TEMA = "mizuki:tema";
+const temaBtn = document.getElementById("tema");
+
+function lerTema() {
+  try { return localStorage.getItem(CHAVE_TEMA); } catch { return null; }
+}
+function gravarTema(v) {
+  try { v ? localStorage.setItem(CHAVE_TEMA, v) : localStorage.removeItem(CHAVE_TEMA); }
+  catch { /* sem armazenamento: a escolha vale só nesta aba */ }
+}
+
+/** O tema que está na tela agora, resolvendo o padrão do sistema. */
+function temaAtual() {
+  const posto = document.documentElement.getAttribute("data-theme");
+  if (posto) return posto;
+  return matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
+function aplicarTema(v) {
+  if (v) document.documentElement.setAttribute("data-theme", v);
+  else document.documentElement.removeAttribute("data-theme");
+  /* aria-pressed = "o tema escuro está ativo", para leitor de tela. */
+  temaBtn.setAttribute("aria-pressed", String(temaAtual() === "dark"));
+}
+
+aplicarTema(lerTema());
+
+temaBtn.addEventListener("click", () => {
+  const novo = temaAtual() === "dark" ? "light" : "dark";
+  aplicarTema(novo);
+  gravarTema(novo);
+});
+
+/* Se o visitante nunca escolheu, acompanha o sistema quando ele mudar. */
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+  if (!lerTema()) aplicarTema(null);
+});
+
+/* --------------------------------------------------------------------------
+   Rolagem — regra dos apps de chat: acompanha o fim, mas não arrasta de volta
+   quem subiu para reler.
+   -------------------------------------------------------------------------- */
+
+const scroller = document.getElementById("scroll");
+const suave = !matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/* `seguindo` guarda a INTENÇÃO do visitante, não a posição atual.
+   Medir a distância no momento de rolar não funciona: um gráfico recém-inserido
+   empurra o fim para longe, a distância fica grande, e a guarda que existe para
+   não arrastar quem subiu acaba bloqueando justamente o caso normal.
+   Então observamos a rolagem DELE e guardamos se estava acompanhando o fim.
+
+   `rolandoEu` existe porque rolagem suave dispara muitos eventos de scroll no
+   caminho, com a distância ainda grande — sem isso a própria rolagem programática
+   se interpretaria como "o usuário subiu". */
+let seguindo = true, rolandoEu = false, destravar = null;
+
+const pertoDoFim = () =>
+  scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < 150;
+
+scroller.addEventListener("scroll", () => {
+  if (!rolandoEu) seguindo = pertoDoFim();
+}, { passive: true });
+
+function aoFundo(forcar) {
+  /* Na abertura não existe conversa para acompanhar: rolar aqui só empurraria o título
+     para fora da tela em janela baixa. A primeira pergunta remove a classe. */
+  if (scroller.classList.contains("vazio")) return;
+  if (forcar) seguindo = true;
+  if (!seguindo) return;
+  rolandoEu = true;
+  scroller.scrollTo({ top: scroller.scrollHeight, behavior: suave ? "smooth" : "auto" });
+  clearTimeout(destravar);
+  destravar = setTimeout(() => { rolandoEu = false; }, 450);
+}
+
+/* Centralização da abertura: só enquanto o conteúdo couber na tela. Ver a nota no CSS. */
+const thread = document.querySelector(".thread");
+function ajustarCentro() {
+  if (!scroller.classList.contains("vazio")) return;
+  scroller.classList.toggle("centrado", thread.scrollHeight <= scroller.clientHeight);
+}
+
+/* Acompanha qualquer crescimento do conteúdo — gráfico que renderiza, tabela que abre,
+   texto que chega em streaming — sem precisar chamar aoFundo() em cada ponto. */
+if ("ResizeObserver" in window) {
+  new ResizeObserver(() => { ajustarCentro(); aoFundo(); }).observe(thread);
+}
+addEventListener("resize", ajustarCentro, { passive: true });
+ajustarCentro();
+
+/* --------------------------------------------------------------------------
+   Composer: cresce com o texto, envia com Enter
+   -------------------------------------------------------------------------- */
+
+function medirTextarea() {
+  qEl.style.height = "auto";
+  qEl.style.height = Math.min(qEl.scrollHeight, 168) + "px";
+}
+qEl.addEventListener("input", () => {
+  medirTextarea();
+  sendBtn.disabled = !qEl.value.trim();
+});
+medirTextarea();
+sendBtn.disabled = true;
+
+/* --------------------------------------------------------------------------
+   Arranque
+   -------------------------------------------------------------------------- */
+
+(async () => {
+  try {
+    pintarIntro(await (await fetch("dados/manifest.json")).json());
+  } catch (e) {
+    console.error("manifest:", e);
+    document.getElementById("intro").textContent =
+      "Os dados exportados não carregaram — veja o console do navegador.";
+  }
+})();
+</script>
+</body>
+</html>
