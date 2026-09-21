@@ -1,5 +1,7 @@
 # Dados brutos da ANAC — reproduzíveis com scripts/baixar_anac.py
-dados/
+# A barra inicial ancora na raiz: sem ela a regra pegaria também agente/dados/,
+# que contém os Parquet servidos pela página e precisam ser versionados.
+/dados/
 *.csv
 
 # Python
