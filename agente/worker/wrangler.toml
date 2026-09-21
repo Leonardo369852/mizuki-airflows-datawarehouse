@@ -1,0 +1,45 @@
+name = "mizuki-agente"
+main = "worker.js"
+compatibility_date = "2026-09-01"
+
+# Publica em mizuki-agente.<subdominio>.workers.dev. Explícito de propósito: sem esta
+# linha o Wrangler liga por padrão e avisa em cada deploy.
+workers_dev = true
+
+# Desliga as Preview URLs. Elas dão a cada versão publicada um endereço público próprio,
+# com o mesmo código e a mesma chave — superfície pública extra que este projeto não usa,
+# porque o teste é feito com `wrangler dev` local.
+preview_urls = false
+
+# Tudo aqui é público — este arquivo vai para o GitHub.
+# A chave da API NÃO entra aqui. Ela é secret, ver README.md.
+[vars]
+PROVEDOR = "gemini"               # "gemini" (free tier) ou "anthropic" (pago)
+
+# Ordem medida, não chutada: testando um a um pelo /saude?modelo=..., o alias
+# gemini-flash-latest não respondeu em 30s (aponta para o lançamento mais recente, que é
+# o mais disputado) enquanto os pinados responderam na hora. Por isso um pinado é o
+# principal, e o alias fica por último — ele não dá a melhor latência, mas é o único
+# que nunca vira 404 por descontinuação, que foi como o gemini-2.5-flash morreu.
+MODELO = "gemini-3.6-flash"
+MODELOS_RESERVA = "gemini-3.5-flash,gemini-3.1-flash-lite,gemini-flash-latest"
+
+# Teto próprio de chamadas por dia. Fica ABAIXO do limite real do free tier do Gemini
+# de propósito: se o nosso teto estourar primeiro, o visitante recebe "a cota do dia
+# acabou, as perguntas prontas continuam funcionando"; se for o do Google, ele recebe
+# um 503 de fila cheia, que não explica nada e parece defeito. Medido hoje: a cota
+# diária acabou depois de algumas dezenas de chamadas entre todos os modelos.
+LIMITE_DIARIO = "150"
+
+# Prazos da chamada ao modelo. Ajustáveis aqui porque o prompt cresce com o tempo e o
+# prazo tem de acompanhar: com ~3 k tokens de entrada, 25 s por tentativa abortava
+# consultas que iam completar. Medir antes de mexer: /saude mostra os valores em uso.
+PRAZO_TENTATIVA_MS = "40000"
+PRAZO_TOTAL_MS     = "80000"
+
+# Contadores de rate limit e do teto diário.
+# Criar com:  wrangler kv namespace create CONTADORES
+# e colar o id devolvido aqui.
+[[kv_namespaces]]
+binding = "CONTADORES"
+id = "f1a1443b42d2416fbca09b468938f557"
