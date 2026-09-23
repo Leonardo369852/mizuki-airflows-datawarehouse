@@ -21,8 +21,20 @@ PROVEDOR = "gemini"               # "gemini" (free tier) ou "anthropic" (pago)
 # o mais disputado) enquanto os pinados responderam na hora. Por isso um pinado é o
 # principal, e o alias fica por último — ele não dá a melhor latência, mas é o único
 # que nunca vira 404 por descontinuação, que foi como o gemini-2.5-flash morreu.
+#
+# Remedido em 23/09/2026, duas chamadas por modelo com uma pergunta real de visitante:
+#   3.6-flash       503 em 4,2 s  ·  200 em 4,9 s
+#   3.5-flash       200 em 31,4 s ·  503 em 34,8 s
+#   3.1-flash-lite  200 em 5,1 s  ·  200 em 4,2 s
+# O principal falha com frequência, mas falha rápido; o que importa é para onde cai. Com o
+# 3.5-flash como primeira reserva, cada falha do principal virava 30 s de "Pensando". O
+# flash-lite, o mais rápido e o único que respondeu as duas vezes, é agora a primeira.
 MODELO = "gemini-3.6-flash"
-MODELOS_RESERVA = "gemini-3.5-flash,gemini-3.1-flash-lite,gemini-flash-latest"
+MODELOS_RESERVA = "gemini-3.1-flash-lite,gemini-3.5-flash,gemini-flash-latest"
+
+# A narração só resume uma tabela já calculada — não escreve SQL — e roda bem no modelo
+# leve. Ele vai primeiro nela; o principal fica de reserva.
+MODELO_NARRACAO = "gemini-3.1-flash-lite"
 
 # Teto próprio de chamadas por dia. Fica ABAIXO do limite real do free tier do Gemini
 # de propósito: se o nosso teto estourar primeiro, o visitante recebe "a cota do dia
@@ -31,11 +43,13 @@ MODELOS_RESERVA = "gemini-3.5-flash,gemini-3.1-flash-lite,gemini-flash-latest"
 # diária acabou depois de algumas dezenas de chamadas entre todos os modelos.
 LIMITE_DIARIO = "150"
 
-# Prazos da chamada ao modelo. Ajustáveis aqui porque o prompt cresce com o tempo e o
-# prazo tem de acompanhar: com ~3 k tokens de entrada, 25 s por tentativa abortava
-# consultas que iam completar. Medir antes de mexer: /saude mostra os valores em uso.
-PRAZO_TENTATIVA_MS = "40000"
-PRAZO_TOTAL_MS     = "80000"
+# Prazos da chamada ao modelo. Os 40 s antigos existiam para esperar o 3.5-flash, que
+# completava depois de 25 s. Com ele rebaixado, um modelo calado depois de 15 s está
+# congestionado e trocar sai mais barato. O prazo vale até a resposta começar: uma
+# narração em streaming não é cortada no meio. Medir antes de mexer: /saude mostra
+# os valores e a fila em uso, sem gastar chamada de modelo.
+PRAZO_TENTATIVA_MS = "15000"
+PRAZO_TOTAL_MS     = "40000"
 
 # Contadores de rate limit e do teto diário.
 # Criar com:  wrangler kv namespace create CONTADORES

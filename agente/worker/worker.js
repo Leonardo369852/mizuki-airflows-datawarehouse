@@ -417,6 +417,7 @@ function cors(origem) {
     "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
     "Access-Control-Allow-Headers": "content-type",
     "Access-Control-Max-Age": "86400",
+    "Access-Control-Expose-Headers": "x-modelo",
     Vary: "Origin",
   };
 }
@@ -500,17 +501,27 @@ const espera = ms => new Promise(r => setTimeout(r, ms));
    ambiente: dá para ajustar com `wrangler deploy` sem tocar em código.
    Passado o total, a página diz que a IA está ocupada e oferece nova tentativa; as
    perguntas prontas nunca dependeram dela. */
-const PRAZO_POR_TENTATIVA_PADRAO = 40000;
-const PRAZO_TOTAL_PADRAO = 80000;
+/* Medido em 23/09/2026 com a pergunta real de um visitante: 3.6-flash e 3.1-flash-lite
+   respondem em 4 a 5 s; 3.5-flash leva mais de 30 s e ainda falha. Os 40 s antigos
+   existiam para esperar o 3.5-flash — um modelo calado depois de 15 s está congestionado,
+   e trocar para o próximo sai mais barato que esperar. */
+const PRAZO_POR_TENTATIVA_PADRAO = 15000;
+const PRAZO_TOTAL_PADRAO = 40000;
+/* Depois que o modelo começa a responder em streaming, este prazo só protege contra
+   stream parado: 400 tokens de narração saem em poucos segundos. */
+const PRAZO_CORPO_MS = 30000;
 
-async function chamar(env, { sistema, usuario, esquema, maxTokens, stream, modeloForcado }) {
+async function chamar(env, { sistema, usuario, esquema, maxTokens, stream, modeloForcado, preferido }) {
   const { p, chave } = resolverProvedor(env);
   const prazoTentativa = Number(env.PRAZO_TENTATIVA_MS ?? PRAZO_POR_TENTATIVA_PADRAO);
   const limite = Date.now() + Number(env.PRAZO_TOTAL_MS ?? PRAZO_TOTAL_PADRAO);
 
+  /* `preferido` deixa cada rota escolher quem vai primeiro: a narração resume uma tabela
+     pequena e roda bem no modelo mais leve, que é também o mais rápido. */
   const fila = modeloForcado
     ? [modeloForcado]
-    : [p.modelo, ...String(env.MODELOS_RESERVA ?? "").split(",").map(s => s.trim()).filter(Boolean)]
+    : [preferido, p.modelo, ...String(env.MODELOS_RESERVA ?? "").split(",").map(s => s.trim())]
+        .filter(Boolean)
         .filter((m, i, a) => a.indexOf(m) === i);   /* sem repetidos */
 
   let ultimo = null;
@@ -529,6 +540,12 @@ async function chamar(env, { sistema, usuario, esquema, maxTokens, stream, model
         break;
       }
 
+      /* O prazo vale até a resposta COMEÇAR. Com AbortSignal.timeout ele valia também
+         para o corpo, e numa narração em streaming um prazo curto cortaria o texto no
+         meio. Chegados os cabeçalhos, um prazo folgado só protege contra stream parado. */
+      const ctl = new AbortController();
+      const relogio = setTimeout(() => ctl.abort(),
+        Math.min(prazoTentativa, Math.max(1000, limite - Date.now())));
       let resposta;
       try {
         resposta = await fetch(p.url(modelo, chave, stream), {
@@ -538,11 +555,10 @@ async function chamar(env, { sistema, usuario, esquema, maxTokens, stream, model
             p.corpo.call({ ...p, modelo }, { sistema, usuario, esquema, maxTokens, stream }),
           ),
           /* Sem isto, um upstream pendurado consome sozinho todo o prazo total. */
-          signal: AbortSignal.timeout(
-            Math.min(prazoTentativa, Math.max(1000, limite - Date.now())),
-          ),
+          signal: ctl.signal,
         });
       } catch (e) {
+        clearTimeout(relogio);
         const expirou = e.name === "TimeoutError" || e.name === "AbortError";
         ultimo = Object.assign(
           new Error(expirou ? `${modelo}: sem resposta a tempo` : `rede: ${e.message}`),
@@ -551,7 +567,11 @@ async function chamar(env, { sistema, usuario, esquema, maxTokens, stream, model
         break;   /* pendurado ou rede fora: troca de modelo em vez de repetir */
       }
 
-      if (resposta.ok) return { resposta, p: { ...p, modelo } };
+      clearTimeout(relogio);
+      if (resposta.ok) {
+        if (stream) setTimeout(() => ctl.abort(), PRAZO_CORPO_MS);
+        return { resposta, p: { ...p, modelo } };
+      }
 
       const detalhe = (await resposta.text()).slice(0, 300);
       ultimo = Object.assign(new Error(`${modelo} ${resposta.status}: ${detalhe}`), {
@@ -637,7 +657,7 @@ async function rotaConsulta(req, env, origem, modeloForcado) {
   if (plano.tipo === "conversa") {
     const texto = String(plano.resposta ?? "").trim();
     if (!texto) return json({ erro: "o modelo não escreveu a resposta" }, 502, origem);
-    return json({ tipo: "conversa", resposta: texto }, 200, origem);
+    return json({ tipo: "conversa", resposta: texto, modelo: p.modelo }, 200, origem);
   }
 
   const motivo = sqlSuspeito(plano.sql);
@@ -649,7 +669,7 @@ async function rotaConsulta(req, env, origem, modeloForcado) {
      e volta a ser "" aqui — senão o rótulo do gráfico sairia "12 nenhuma". */
   if (plano.unidade === "nenhuma") plano.unidade = "";
 
-  return json(plano, 200, origem);
+  return json({ ...plano, modelo: p.modelo }, 200, origem);
 }
 
 async function rotaNarrar(req, env, origem, modeloForcado) {
@@ -675,6 +695,7 @@ async function rotaNarrar(req, env, origem, modeloForcado) {
     maxTokens: 400,
     stream: true,
     modeloForcado,
+    preferido: env.MODELO_NARRACAO,
   });
 
   // Reempacota o SSE do provedor num formato único, para a página não saber qual IA respondeu.
@@ -719,6 +740,7 @@ async function rotaNarrar(req, env, origem, modeloForcado) {
   return new Response(readable, {
     headers: {
       "content-type": "text/event-stream; charset=utf-8",
+      "x-modelo": p.modelo,
       "cache-control": "no-cache",
       ...cors(origem),
     },
@@ -750,6 +772,8 @@ async function rotaSaude(env, url, origem) {
     limite_diario: Number(env.LIMITE_DIARIO ?? LIMITE_DIARIO_PADRAO),
     prazo_tentativa_ms: Number(env.PRAZO_TENTATIVA_MS ?? PRAZO_POR_TENTATIVA_PADRAO),
     prazo_total_ms: Number(env.PRAZO_TOTAL_MS ?? PRAZO_TOTAL_PADRAO),
+    reservas: String(env.MODELOS_RESERVA ?? "").split(",").map(x => x.trim()).filter(Boolean),
+    modelo_narracao: env.MODELO_NARRACAO ?? cfg.p.modelo,
   };
 
   if (url.searchParams.get("testar") !== "1") {

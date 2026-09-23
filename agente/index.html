@@ -886,6 +886,7 @@ async function rodar(sql) {
 async function pedirPlano(pergunta, signal, avisar) {
   if (WORKER) {
     for (let tentativa = 1; tentativa <= 2; tentativa++) {
+      const t0 = performance.now();
       const r = await fetch(WORKER + "/consulta", {
         method: "POST", signal,
         headers: { "content-type": "application/json" },
@@ -894,7 +895,11 @@ async function pedirPlano(pergunta, signal, avisar) {
       const j = await r.json();
       if (r.ok) return j;
 
-      if (r.status === 503 && tentativa === 1) {
+      /* Só repete falha RÁPIDA. Um 503 que demorou é o Worker avisando que já percorreu a
+         fila inteira de modelos até o prazo dele — repetir dobraria a espera para cair no
+         mesmo erro. Antes desta regra o pior caso passava de dois minutos de "Pensando". */
+      const rapida = performance.now() - t0 < 10000;
+      if (r.status === 503 && tentativa === 1 && rapida) {
         avisar?.("A IA está ocupada. Tentando de novo…");
         await new Promise(ok => setTimeout(ok, 2500));
         if (signal.aborted) throw Object.assign(new Error("cancelado"), { name: "AbortError" });
