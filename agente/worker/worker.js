@@ -510,11 +510,15 @@ const PRAZO_TOTAL_PADRAO = 40000;
 /* Depois que o modelo começa a responder em streaming, este prazo só protege contra
    stream parado: 400 tokens de narração saem em poucos segundos. */
 const PRAZO_CORPO_MS = 30000;
+/* Quanto o principal pode demorar antes de a reserva entrar junto, no /consulta. Acima
+   dos 3 a 5 s de um principal saudável, para ela quase nunca disparar à toa. */
+const ATRASO_RESERVA_PADRAO = 6000;
 
-async function chamar(env, { sistema, usuario, esquema, maxTokens, stream, modeloForcado, preferido }) {
+async function chamar(env, { sistema, usuario, esquema, maxTokens, stream, modeloForcado, preferido, atrasoReserva }) {
   const { p, chave } = resolverProvedor(env);
   const prazoTentativa = Number(env.PRAZO_TENTATIVA_MS ?? PRAZO_POR_TENTATIVA_PADRAO);
-  const limite = Date.now() + Number(env.PRAZO_TOTAL_MS ?? PRAZO_TOTAL_PADRAO);
+  const inicio = Date.now();
+  const limite = inicio + Number(env.PRAZO_TOTAL_MS ?? PRAZO_TOTAL_PADRAO);
 
   /* `preferido` deixa cada rota escolher quem vai primeiro: a narração resume uma tabela
      pequena e roda bem no modelo mais leve, que é também o mais rápido. */
@@ -530,60 +534,98 @@ async function chamar(env, { sistema, usuario, esquema, maxTokens, stream, model
      demorar, o erro final vira 503 e esconde o motivo verdadeiro. */
   let viuCota = false;
 
-  for (const modelo of fila) {
-    /* Uma tentativa por modelo. "High demand" é por modelo e não passa em meio segundo,
-       então repetir no mesmo só queima orçamento — trocar de modelo é o que resolve.
-       A segunda tentativa existe só para erro de rede, que é instantâneo. */
-    for (let tentativa = 1; tentativa <= 2; tentativa++) {
-      if (Date.now() > limite) {
-        ultimo = Object.assign(new Error("prazo esgotado antes de uma resposta"), { status: 503 });
-        break;
-      }
-
-      /* O prazo vale até a resposta COMEÇAR. Com AbortSignal.timeout ele valia também
-         para o corpo, e numa narração em streaming um prazo curto cortaria o texto no
-         meio. Chegados os cabeçalhos, um prazo folgado só protege contra stream parado. */
-      const ctl = new AbortController();
-      const relogio = setTimeout(() => ctl.abort(),
-        Math.min(prazoTentativa, Math.max(1000, limite - Date.now())));
-      let resposta;
-      try {
-        resposta = await fetch(p.url(modelo, chave, stream), {
-          method: "POST",
-          headers: p.cabecalhos ? p.cabecalhos(chave) : { "content-type": "application/json" },
-          body: JSON.stringify(
-            p.corpo.call({ ...p, modelo }, { sistema, usuario, esquema, maxTokens, stream }),
-          ),
-          /* Sem isto, um upstream pendurado consome sozinho todo o prazo total. */
-          signal: ctl.signal,
-        });
-      } catch (e) {
-        clearTimeout(relogio);
-        const expirou = e.name === "TimeoutError" || e.name === "AbortError";
-        ultimo = Object.assign(
-          new Error(expirou ? `${modelo}: sem resposta a tempo` : `rede: ${e.message}`),
-          { status: 503 },
-        );
-        break;   /* pendurado ou rede fora: troca de modelo em vez de repetir */
-      }
-
-      clearTimeout(relogio);
-      if (resposta.ok) {
-        if (stream) setTimeout(() => ctl.abort(), PRAZO_CORPO_MS);
-        return { resposta, p: { ...p, modelo } };
-      }
-
-      const detalhe = (await resposta.text()).slice(0, 300);
-      ultimo = Object.assign(new Error(`${modelo} ${resposta.status}: ${detalhe}`), {
-        status: resposta.status,
+  /* Uma tentativa num modelo. Nunca rejeita: devolve {ok, resposta, modelo, ctl} ou
+     {ok: false, erro}, para a corrida abaixo tratar sucesso e falha do mesmo jeito.
+     Uma só por modelo: "high demand" é por modelo e não passa em meio segundo, então
+     repetir no mesmo só queima cota — trocar de modelo é o que resolve. */
+  async function tentar(modelo, ctl) {
+    /* O prazo vale até a resposta COMEÇAR. Com AbortSignal.timeout ele valia também
+       para o corpo, e numa narração em streaming um prazo curto cortaria o texto no
+       meio. Chegados os cabeçalhos, um prazo folgado só protege contra stream parado. */
+    const relogio = setTimeout(() => ctl.abort(),
+      Math.min(prazoTentativa, Math.max(1000, limite - Date.now())));
+    try {
+      const resposta = await fetch(p.url(modelo, chave, stream), {
+        method: "POST",
+        headers: p.cabecalhos ? p.cabecalhos(chave) : { "content-type": "application/json" },
+        body: JSON.stringify(
+          p.corpo.call({ ...p, modelo }, { sistema, usuario, esquema, maxTokens, stream }),
+        ),
+        /* Sem isto, um upstream pendurado consome sozinho todo o prazo total. */
+        signal: ctl.signal,
       });
-      if (resposta.status === 429) viuCota = true;
-
-      /* Qualquer erro de status: trocar de modelo. 404 (sumiu) e 429 (cota) não melhoram
-         repetindo; 503 (ocupado) também não melhora em meio segundo. */
-      break;
+      clearTimeout(relogio);
+      if (resposta.ok) return { ok: true, resposta, modelo, ctl };
+      const detalhe = (await resposta.text()).slice(0, 300);
+      return { ok: false, erro: Object.assign(
+        new Error(`${modelo} ${resposta.status}: ${detalhe}`), { status: resposta.status }) };
+    } catch (e) {
+      clearTimeout(relogio);
+      const expirou = e.name === "TimeoutError" || e.name === "AbortError";
+      return { ok: false, erro: Object.assign(
+        new Error(expirou ? `${modelo}: sem resposta a tempo` : `rede: ${e.message}`),
+        { status: 503 }) };
     }
-    if (Date.now() > limite) break;
+  }
+
+  /* A corrida. O normal é um modelo por vez: o próximo da fila só entra quando o anterior
+     falha. A exceção é a RESERVA ATRASADA (atrasoReserva, só no /consulta): se o
+     principal passa desse tempo sem responder, o segundo da fila entra junto, e fica
+     quem responder primeiro. Medido em 23/09/2026: o principal saudável responde em 3 a
+     5 s, mas às vezes fica pendurado até o prazo de 15 s — e aí a pergunta levava 20 s.
+     Com a reserva entrando aos 6 s, esse caso cai para uns 11 s.
+     O custo é uma chamada extra ao provedor, e só nas perguntas lentas: a reserva
+     dispara no máximo uma vez, e quem perde a corrida é abortado. O contador diário do
+     KV conta perguntas, não chamadas ao provedor — como já acontecia quando um modelo
+     falhava e o seguinte assumia. */
+  const correndo = new Map();                  /* promessa da tentativa -> seu AbortController */
+  let proximo = 0;
+  let reservaPendente = atrasoReserva > 0 && fila.length > 1;
+  let reservaUsada = false;
+
+  const lancar = () => {
+    if (proximo >= fila.length || Date.now() > limite) return false;
+    const ctl = new AbortController();
+    const promessa = tentar(fila[proximo++], ctl).then((r) => ({ promessa, r }));
+    correndo.set(promessa, ctl);
+    return true;
+  };
+
+  lancar();
+  while (correndo.size) {
+    const concorrentes = [...correndo.keys()];
+    let relogioReserva;
+    /* A reserva só vale enquanto o principal corre sozinho. */
+    if (reservaPendente && proximo === 1 && correndo.size === 1) {
+      const falta = Math.max(0, inicio + atrasoReserva - Date.now());
+      concorrentes.push(new Promise((ok) => {
+        relogioReserva = setTimeout(() => ok({ reserva: true }), falta);
+      }));
+    }
+    const evento = await Promise.race(concorrentes);
+    clearTimeout(relogioReserva);
+
+    if (evento.reserva) {
+      reservaPendente = false;
+      reservaUsada = lancar();
+      continue;
+    }
+
+    correndo.delete(evento.promessa);
+    const { r } = evento;
+    if (r.ok) {
+      for (const ctl of correndo.values()) ctl.abort();   /* quem perdeu para de gastar */
+      if (stream) setTimeout(() => r.ctl.abort(), PRAZO_CORPO_MS);
+      return { resposta: r.resposta, p: { ...p, modelo: r.modelo }, reserva: reservaUsada };
+    }
+
+    ultimo = r.erro;
+    if (r.erro.status === 429) viuCota = true;
+    /* Falhou. Se a reserva ainda não tinha disparado, ela deixa de fazer sentido: o
+       próximo da fila entra agora, como substituto. Com outra tentativa ainda correndo,
+       espera por ela em vez de abrir uma terceira frente. */
+    reservaPendente = false;
+    if (!correndo.size) lancar();
   }
 
   if (viuCota || ultimo?.status === 429) {
@@ -637,12 +679,13 @@ async function rotaConsulta(req, env, origem, modeloForcado) {
     return json({ erro: `pergunta acima de ${MAX_CARACTERES_PERGUNTA} caracteres` }, 400, origem);
   }
 
-  const { resposta, p } = await chamar(env, {
+  const { resposta, p, reserva } = await chamar(env, {
     sistema: SCHEMA + QUEM_SOU + ROTEAMENTO + REGRAS_SQL + historicoEmTexto(historico),
     usuario: pergunta.trim(),
     esquema: ESQUEMA_CONSULTA,
     maxTokens: 900,
     modeloForcado,
+    atrasoReserva: Number(env.ATRASO_RESERVA_MS ?? ATRASO_RESERVA_PADRAO),
   });
 
   let plano;
@@ -657,7 +700,7 @@ async function rotaConsulta(req, env, origem, modeloForcado) {
   if (plano.tipo === "conversa") {
     const texto = String(plano.resposta ?? "").trim();
     if (!texto) return json({ erro: "o modelo não escreveu a resposta" }, 502, origem);
-    return json({ tipo: "conversa", resposta: texto, modelo: p.modelo }, 200, origem);
+    return json({ tipo: "conversa", resposta: texto, modelo: p.modelo, reserva }, 200, origem);
   }
 
   const motivo = sqlSuspeito(plano.sql);
@@ -669,7 +712,7 @@ async function rotaConsulta(req, env, origem, modeloForcado) {
      e volta a ser "" aqui — senão o rótulo do gráfico sairia "12 nenhuma". */
   if (plano.unidade === "nenhuma") plano.unidade = "";
 
-  return json({ ...plano, modelo: p.modelo }, 200, origem);
+  return json({ ...plano, modelo: p.modelo, reserva }, 200, origem);
 }
 
 async function rotaNarrar(req, env, origem, modeloForcado) {
@@ -774,6 +817,7 @@ async function rotaSaude(env, url, origem) {
     prazo_total_ms: Number(env.PRAZO_TOTAL_MS ?? PRAZO_TOTAL_PADRAO),
     reservas: String(env.MODELOS_RESERVA ?? "").split(",").map(x => x.trim()).filter(Boolean),
     modelo_narracao: env.MODELO_NARRACAO ?? cfg.p.modelo,
+    atraso_reserva_ms: Number(env.ATRASO_RESERVA_MS ?? ATRASO_RESERVA_PADRAO),
   };
 
   if (url.searchParams.get("testar") !== "1") {

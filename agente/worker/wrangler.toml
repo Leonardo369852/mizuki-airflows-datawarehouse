@@ -51,6 +51,13 @@ LIMITE_DIARIO = "150"
 PRAZO_TENTATIVA_MS = "15000"
 PRAZO_TOTAL_MS     = "40000"
 
+# Reserva atrasada, só no /consulta: se o principal não responder nesse tempo, o segundo
+# da fila entra junto e fica quem responder primeiro; o perdedor é abortado. Medido: o
+# principal saudável responde em 3 a 5 s, mas às vezes fica pendurado até os 15 s, e a
+# pergunta levava 20 s. Com 6 s, esse caso cai para ~11 s e o caso normal nem dispara a
+# reserva. Custa uma chamada extra ao provedor só nas perguntas lentas. "0" desliga.
+ATRASO_RESERVA_MS  = "6000"
+
 # Contadores de rate limit e do teto diário.
 # Criar com:  wrangler kv namespace create CONTADORES
 # e colar o id devolvido aqui.
