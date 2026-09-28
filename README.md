@@ -99,6 +99,11 @@ faltasse no `GROUP BY`, os totais ainda fechariam — mas os cortes não.
 turnos da conversa com o SQL e as primeiras linhas de cada um, então "e em fevereiro?" reaproveita a
 consulta anterior trocando só o filtro.
 
+**Consulta vazia é revisada, não narrada.** Zero linhas numa pergunta livre quase sempre é um filtro
+de texto que não bate com a base. O agente reescreve a consulta uma vez, sabendo que a primeira voltou
+vazia, e a tela mostra as duas. Se a segunda também vier vazia, o texto é fixo e o narrador não entra:
+sem nada para descrever, ele inventava o motivo do vazio.
+
 **O prompt fica no servidor, não na página.** Se o cliente pudesse mandar o prompt, o endpoint seria
 um relay de LLM aberto — alguém acharia a URL e usaria a cota para gerar qualquer coisa. Aceitando
 só a pergunta e devolvendo só SQL contra um schema fixo, o pior uso possível continua sendo
@@ -141,6 +146,16 @@ usa a segunda em ranking de atraso, declarando o corte.
 não têm nome, município nem coordenada: 79 estrangeiros e 6 brasileiros que faltam no cadastro da
 ANAC (`SBIZ`, `SNCL`, `SBUY`, `SSOU`, `SBCR`, `SDLO`). São **10,5% das partidas**, e elas ficam fora
 do mapa.
+
+**6. A coluna `uf` não guarda a sigla.** Na Gold, `uf` traz o nome por extenso (`São Paulo`) e
+`municipio` vem em maiúsculas com acento (`SÃO PAULO`). Quem lê "uf" escreve `uf = 'SP'`, e o estado
+com mais voos do país aparecia **vazio** no agente. Na exportação, `uf` passou a ser a sigla que o
+nome promete, e o nome por extenso foi para `estado`.
+
+**7. A razão social esconde a marca.** A LATAM Brasil, maior empresa da base, com 302 mil voos, é
+`TAM LINHAS AÉREAS S.A.`. Procurar "LATAM" no nome encontra a LATAM chilena e devolve 14 mil voos:
+um número plausível e errado, sem erro nenhum aparecendo. A exportação ganhou a coluna `marca`
+(LATAM, GOL, AZUL), que agrupa as operadoras de cada grupo.
 
 ### Um achado analítico
 
