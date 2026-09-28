@@ -1075,6 +1075,19 @@ function gBarraV(host, ls, plano) {
   return s;
 }
 
+/* Rótulo curto para o eixo do tempo: "2025-08" e "ago/2025" viram "ago/25"; o resto é
+   cortado no fim com reticências. Antes era slice(-5), escrito para "2025-08": com o
+   rótulo "ago/2025" ele mostrava só "/2025", e o mês sumia do eixo. */
+const MESES_CURTOS = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+function rotuloEixo(v) {
+  const t = String(v ?? "");
+  let m = t.match(/^(\d{4})-(\d{2})$/);
+  if (m) return `${MESES_CURTOS[Number(m[2]) - 1] ?? m[2]}/${m[1].slice(2)}`;
+  m = t.match(/^([a-zç]{3})\/(\d{4})$/i);
+  if (m) return `${m[1]}/${m[2].slice(2)}`;
+  return t.length > 7 ? t.slice(0, 6) + "…" : t;
+}
+
 function gLinha(host, ls, plano) {
   const h = 210, base = h - 32, topo = 18, padL = 8, padR = 46;
   const s = svgIn(host, h);
@@ -1105,7 +1118,7 @@ function gLinha(host, ls, plano) {
         { anchor: "middle", size: 11.5, mono: true, weight: 600, fill: "var(--ink)" });
     }
     if (i === 0 || i === ls.length - 1 || ls.length <= 13) {
-      txt(s, px(i), base + 15, String(l[plano.x] ?? "").slice(-5),
+      txt(s, px(i), base + 15, rotuloEixo(l[plano.x]),
         { anchor: "middle", size: 10.5, mono: true });
     }
   });
@@ -1353,6 +1366,13 @@ function frase(plano, ls) {
   if (!medida) return `${ls.length} ${ls.length === 1 ? "linha" : "linhas"}.`;
   const un = (medida === plano.x || medida === plano.y) ? plano.unidade : "";
   const valor = rot(l[medida], un);
+  if (plano.grafico === "linha" && chave && ls.length > 1) {
+    /* Em série no tempo a primeira linha é o período mais antigo, não o "topo". */
+    let iMax = 0;
+    ls.forEach((r, i) => { if (ehNum(r[medida]) && r[medida] > ls[iMax][medida]) iMax = i; });
+    return `De ${ls[0][chave]} a ${ls[ls.length - 1][chave]}, o pico foi em ${ls[iMax][chave]}: `
+      + `${rot(ls[iMax][medida], un)}. O SQL e a tabela estão abaixo.`;
+  }
   if (ls.length === 1) return chave ? `${l[chave]}: ${valor}.` : `${valor}.`;
   return (chave ? `No topo, ${l[chave]} com ${valor}` : `Maior valor: ${valor}`)
     + `. São ${nf(ls.length)} linhas — o SQL e a tabela estão abaixo.`;
@@ -1380,8 +1400,20 @@ async function ask(pergunta, planoPronto) {
   try {
     await garantirBanco();
     if (!planoPronto) pensando(texto, "Pensando");
-    let plano = planoPronto
-      || await pedirPlano(pergunta, ctl.signal, m => pensando(texto, m.replace(/…$/, "")));
+    /* O Worker insiste por até um minuto quando a IA gratuita congestiona. Sem este
+       aviso, o visitante via "Pensando" parado e achava que tinha travado. */
+    const lento = setTimeout(() => {
+      if (texto.classList.contains("pensando") && /^Pensando/.test(texto.textContent)) {
+        pensando(texto, "A IA gratuita está disputada agora. Continuo tentando");
+      }
+    }, 8000);
+    let plano;
+    try {
+      plano = planoPronto
+        || await pedirPlano(pergunta, ctl.signal, m => pensando(texto, m.replace(/…$/, "")));
+    } finally {
+      clearTimeout(lento);
+    }
 
     /* Nem toda pergunta é consulta. "o que é você?", "o que isso significa?", "obrigado"
        — para essas o modelo devolve tipo "conversa" e a resposta em prosa, e aqui a
@@ -1471,7 +1503,17 @@ async function ask(pergunta, planoPronto) {
         : "A consulta não encontrou nenhuma linha. O SQL está abaixo para conferir.");
     } else if (temLLM && !planoPronto) {
       pensando(texto, "Escrevendo");
-      await narrar(pergunta, plano, linhas, texto, ctl.signal);
+      try {
+        await narrar(pergunta, plano, linhas, texto, ctl.signal);
+      } catch (e) {
+        if (e.name === "AbortError") throw e;
+        /* A narração é o acabamento: gráfico, SQL e tabela já estão na tela. Se a IA
+           falhar aqui, a resposta sai da própria tabela, como nas perguntas prontas — em
+           vez de uma tela de erro que pedia para refazer a pergunta inteira, gastando
+           outra consulta para chegar ao mesmo gráfico. */
+        console.warn("narração:", e);
+        fala(texto, frase(plano, linhas));
+      }
     } else {
       fala(texto, frase(plano, linhas));
     }
