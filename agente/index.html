@@ -883,14 +883,14 @@ async function rodar(sql) {
    agora responde em 6 s dez segundos depois — medido. Um visitante que recebe erro na
    primeira pergunta vai embora, então a página tenta de novo sozinha antes de desistir.
    Só em 503: 429 é cota do dia e não melhora esperando dois segundos. */
-async function pedirPlano(pergunta, signal, avisar) {
+async function pedirPlano(pergunta, signal, avisar, hist = historico) {
   if (WORKER) {
     for (let tentativa = 1; tentativa <= 2; tentativa++) {
       const t0 = performance.now();
       const r = await fetch(WORKER + "/consulta", {
         method: "POST", signal,
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ pergunta, historico })
+        body: JSON.stringify({ pergunta, historico: hist })
       });
       const j = await r.json();
       if (r.ok) return j;
@@ -910,9 +910,9 @@ async function pedirPlano(pergunta, signal, avisar) {
   }
   /* Sem Worker: dentro do Claude o próprio visualizador serve. Aqui o prompt vive no
      cliente por força — não há servidor para guardá-lo. */
-  const conversa = historico.length
+  const conversa = hist.length
     ? "\n\nCONVERSA ATÉ AGORA — a pergunta nova pode se referir a isto:\n"
-      + historico.map((h, n) =>
+      + hist.map((h, n) =>
           `[${n + 1}] Pergunta: ${h.pergunta}`
           + (h.sql ? `\n    SQL: ${h.sql}` : "")
           + (h.amostra ? `\n    Resultado: ${JSON.stringify(h.amostra).slice(0, 400)}` : "")
@@ -1380,7 +1380,7 @@ async function ask(pergunta, planoPronto) {
   try {
     await garantirBanco();
     if (!planoPronto) pensando(texto, "Pensando");
-    const plano = planoPronto
+    let plano = planoPronto
       || await pedirPlano(pergunta, ctl.signal, m => pensando(texto, m.replace(/…$/, "")));
 
     /* Nem toda pergunta é consulta. "o que é você?", "o que isso significa?", "obrigado"
@@ -1396,7 +1396,31 @@ async function ask(pergunta, planoPronto) {
     }
 
     pensando(texto, "Consultando");
-    const { linhas, ms } = await rodar(plano.sql);
+    let { linhas, ms } = await rodar(plano.sql);
+
+    /* Zero linhas numa pergunta livre quase sempre é um filtro de texto que não bate com a
+       base. O caso medido: "uf = 'SP'" contra uma coluna que guardava "São Paulo", e o
+       estado com mais voos do país aparecia vazio. O agente reescreve UMA vez, sabendo que
+       a primeira voltou vazia. Custa uma chamada, e só nesse caso. Pergunta pronta não
+       entra: o SQL dela foi escrito à mão. */
+    let sqlVazio = null;
+    if (!linhas.length && temLLM && !planoPronto) {
+      pensando(texto, "Revisando a consulta");
+      sqlVazio = plano.sql;
+      const novo = await pedirPlano(pergunta, ctl.signal, m => pensando(texto, m.replace(/…$/, "")),
+        [...historico, { pergunta, sql: plano.sql, amostra: [], total: 0 }]);
+      if (novo.tipo === "conversa") {
+        fala(texto, novo.resposta);
+        registrar({ pergunta, resposta: novo.resposta });
+        aoFundo();
+        return;
+      }
+      if (novo.sql && novo.sql !== plano.sql) {
+        pensando(texto, "Consultando");
+        plano = novo;
+        ({ linhas, ms } = await rodar(plano.sql));
+      }
+    }
 
     /* Gráfico, SQL e tabela num bloco próprio, colado embaixo do balão: os dois
        formam um cartão só, e o gráfico usa a largura inteira do thread. */
@@ -1416,11 +1440,15 @@ async function ask(pergunta, planoPronto) {
     }
     const meta = document.createElement("p");
     meta.className = "res-meta";
-    meta.textContent = `${nf(linhas.length)} ${linhas.length === 1 ? "linha" : "linhas"} · ${ms} ms · DuckDB no seu navegador`;
+    meta.textContent = `${nf(linhas.length)} ${linhas.length === 1 ? "linha" : "linhas"} · ${ms} ms · DuckDB no seu navegador`
+      + (sqlVazio && linhas.length ? " · revisada depois de uma consulta vazia" : "");
     corpo.appendChild(meta);
 
     if (plano.aviso) corpo.appendChild(blocoAviso(plano.aviso));
     corpo.appendChild(detalhe("ver o SQL", pintarSql(plano.sql)));
+    if (sqlVazio && sqlVazio !== plano.sql) {
+      corpo.appendChild(detalhe("ver a consulta que voltou vazia", pintarSql(sqlVazio)));
+    }
     if (linhas.length) {
       const tab = document.createElement("div");
       gTabela(tab, linhas);
@@ -1432,7 +1460,16 @@ async function ask(pergunta, planoPronto) {
     /* Pergunta pronta já traz a consulta escrita: responde da própria tabela, sem
        chamar o modelo. É o que a interface promete, e mantém as chips instantâneas e
        de graça — o orçamento de IA fica para o texto livre. */
-    if (temLLM && !planoPronto) {
+    if (!linhas.length) {
+      /* Resultado vazio não vai para o narrador: sem nada para descrever, ele inventava o
+         motivo ("porque o cadastro só cobre…", "porque o piso de 100 voos…") e nenhum era
+         verdade. O texto aqui é fixo e só afirma o que se sabe. */
+      fala(texto, sqlVazio
+        ? "A consulta não encontrou nenhuma linha, nem depois de uma revisão. Pode ser que o "
+          + "pedido não exista na base, ou que um filtro não bata com a forma como o dado está "
+          + "escrito. O SQL está abaixo para conferir."
+        : "A consulta não encontrou nenhuma linha. O SQL está abaixo para conferir.");
+    } else if (temLLM && !planoPronto) {
       pensando(texto, "Escrevendo");
       await narrar(pergunta, plano, linhas, texto, ctl.signal);
     } else {
