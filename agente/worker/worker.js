@@ -535,12 +535,19 @@ const PRAZO_CORPO_MS = 30000;
 /* Quanto o principal pode demorar antes de a reserva entrar junto, no /consulta. Acima
    dos 3 a 5 s de um principal saudável, para ela quase nunca disparar à toa. */
 const ATRASO_RESERVA_PADRAO = 6000;
+/* O /consulta insiste por até um minuto antes de mostrar erro: 30 s de espera o visitante
+   aceita, clicar em "tentar de novo" até funcionar, não. A narração tem prazo curto porque
+   a página tem saída sem ela — o gráfico já está na tela. */
+const PRAZO_CONSULTA_PADRAO = 60000;
+const PRAZO_NARRACAO_PADRAO = 25000;
+const RODADAS_MAX = 4;                 /* esperas de 1,5 s, 3 s e 6 s entre elas */
+const ESPERA_RODADA_PADRAO = 1500;
 
-async function chamar(env, { sistema, usuario, esquema, maxTokens, stream, modeloForcado, preferido, atrasoReserva }) {
+async function chamar(env, { sistema, usuario, esquema, maxTokens, stream, modeloForcado, preferido,
+                              atrasoReserva, insistir, prazoTotal }) {
   const { p, chave } = resolverProvedor(env);
   const prazoTentativa = Number(env.PRAZO_TENTATIVA_MS ?? PRAZO_POR_TENTATIVA_PADRAO);
-  const inicio = Date.now();
-  const limite = inicio + Number(env.PRAZO_TOTAL_MS ?? PRAZO_TOTAL_PADRAO);
+  const limite = Date.now() + Number(prazoTotal ?? env.PRAZO_TOTAL_MS ?? PRAZO_TOTAL_PADRAO);
 
   /* `preferido` deixa cada rota escolher quem vai primeiro: a narração resume uma tabela
      pequena e roda bem no modelo mais leve, que é também o mais rápido. */
@@ -555,11 +562,11 @@ async function chamar(env, { sistema, usuario, esquema, maxTokens, stream, model
      acionável, congestionamento não. Sem isto, se o último modelo da fila apenas
      demorar, o erro final vira 503 e esconde o motivo verdadeiro. */
   let viuCota = false;
+  /* Último status de cada modelo nesta pergunta: decide quem volta na rodada seguinte. */
+  const estado = new Map();
 
   /* Uma tentativa num modelo. Nunca rejeita: devolve {ok, resposta, modelo, ctl} ou
-     {ok: false, erro}, para a corrida abaixo tratar sucesso e falha do mesmo jeito.
-     Uma só por modelo: "high demand" é por modelo e não passa em meio segundo, então
-     repetir no mesmo só queima cota — trocar de modelo é o que resolve. */
+     {ok: false, erro}, para a corrida abaixo tratar sucesso e falha do mesmo jeito. */
   async function tentar(modelo, ctl) {
     /* O prazo vale até a resposta COMEÇAR. Com AbortSignal.timeout ele valia também
        para o corpo, e numa narração em streaming um prazo curto cortaria o texto no
@@ -590,64 +597,96 @@ async function chamar(env, { sistema, usuario, esquema, maxTokens, stream, model
     }
   }
 
-  /* A corrida. O normal é um modelo por vez: o próximo da fila só entra quando o anterior
-     falha. A exceção é a RESERVA ATRASADA (atrasoReserva, só no /consulta): se o
-     principal passa desse tempo sem responder, o segundo da fila entra junto, e fica
-     quem responder primeiro. Medido em 23/09/2026: o principal saudável responde em 3 a
-     5 s, mas às vezes fica pendurado até o prazo de 15 s — e aí a pergunta levava 20 s.
-     Com a reserva entrando aos 6 s, esse caso cai para uns 11 s.
-     O custo é uma chamada extra ao provedor, e só nas perguntas lentas: a reserva
-     dispara no máximo uma vez, e quem perde a corrida é abortado. O contador diário do
-     KV conta perguntas, não chamadas ao provedor — como já acontecia quando um modelo
-     falhava e o seguinte assumia. */
-  const correndo = new Map();                  /* promessa da tentativa -> seu AbortController */
-  let proximo = 0;
-  let reservaPendente = atrasoReserva > 0 && fila.length > 1;
-  let reservaUsada = false;
+  /* Uma rodada: os candidatos correm um por vez, e o próximo só entra quando o anterior
+     falha. A exceção é a RESERVA ATRASADA (só no /consulta): se o primeiro passa de
+     atrasoReserva sem responder, o segundo entra junto e fica quem responder primeiro.
+     Medido em 23/09/2026: o principal saudável responde em 3 a 5 s, mas às vezes fica
+     pendurado até o prazo de 15 s — e aí a pergunta levava 20 s; com a reserva aos 6 s,
+     esse caso cai para uns 11 s. Ela dispara no máximo uma vez por rodada, e quem perde
+     a corrida é abortado. O contador diário do KV conta perguntas, não chamadas ao
+     provedor. */
+  async function rodada(candidatos) {
+    const inicio = Date.now();
+    const correndo = new Map();                /* promessa da tentativa -> seu AbortController */
+    let proximo = 0;
+    let reservaPendente = atrasoReserva > 0 && candidatos.length > 1;
+    let reservaUsada = false;
 
-  const lancar = () => {
-    if (proximo >= fila.length || Date.now() > limite) return false;
-    const ctl = new AbortController();
-    const promessa = tentar(fila[proximo++], ctl).then((r) => ({ promessa, r }));
-    correndo.set(promessa, ctl);
-    return true;
-  };
+    const lancar = () => {
+      if (proximo >= candidatos.length || Date.now() > limite) return false;
+      const ctl = new AbortController();
+      const modelo = candidatos[proximo++];
+      const promessa = tentar(modelo, ctl).then((r) => ({ promessa, r, modelo }));
+      correndo.set(promessa, ctl);
+      return true;
+    };
 
-  lancar();
-  while (correndo.size) {
-    const concorrentes = [...correndo.keys()];
-    let relogioReserva;
-    /* A reserva só vale enquanto o principal corre sozinho. */
-    if (reservaPendente && proximo === 1 && correndo.size === 1) {
-      const falta = Math.max(0, inicio + atrasoReserva - Date.now());
-      concorrentes.push(new Promise((ok) => {
-        relogioReserva = setTimeout(() => ok({ reserva: true }), falta);
-      }));
-    }
-    const evento = await Promise.race(concorrentes);
-    clearTimeout(relogioReserva);
+    lancar();
+    while (correndo.size) {
+      const concorrentes = [...correndo.keys()];
+      let relogioReserva;
+      /* A reserva só vale enquanto o primeiro corre sozinho. */
+      if (reservaPendente && proximo === 1 && correndo.size === 1) {
+        const falta = Math.max(0, inicio + atrasoReserva - Date.now());
+        concorrentes.push(new Promise((ok) => {
+          relogioReserva = setTimeout(() => ok({ reserva: true }), falta);
+        }));
+      }
+      const evento = await Promise.race(concorrentes);
+      clearTimeout(relogioReserva);
 
-    if (evento.reserva) {
+      if (evento.reserva) {
+        reservaPendente = false;
+        reservaUsada = lancar();
+        continue;
+      }
+
+      correndo.delete(evento.promessa);
+      const { r, modelo } = evento;
+      if (r.ok) {
+        for (const ctl of correndo.values()) ctl.abort();   /* quem perdeu para de gastar */
+        if (stream) setTimeout(() => r.ctl.abort(), PRAZO_CORPO_MS);
+        return { r, reservaUsada };
+      }
+
+      ultimo = r.erro;
+      estado.set(modelo, r.erro.status);
+      if (r.erro.status === 429) viuCota = true;
+      /* Falhou. Se a reserva ainda não tinha disparado, ela deixa de fazer sentido: o
+         próximo entra agora, como substituto. Com outra tentativa ainda correndo, espera
+         por ela em vez de abrir uma terceira frente. */
       reservaPendente = false;
-      reservaUsada = lancar();
-      continue;
+      if (!correndo.size) lancar();
     }
+    return null;
+  }
 
-    correndo.delete(evento.promessa);
-    const { r } = evento;
-    if (r.ok) {
-      for (const ctl of correndo.values()) ctl.abort();   /* quem perdeu para de gastar */
-      if (stream) setTimeout(() => r.ctl.abort(), PRAZO_CORPO_MS);
-      return { resposta: r.resposta, p: { ...p, modelo: r.modelo }, reserva: reservaUsada };
+  /* INSISTIR (só no /consulta). No free tier, "high demand" é quase sempre momentâneo:
+     medido, a mesma pergunta que falha agora responde em 6 s dez segundos depois. Mas a
+     fila desistia na primeira volta — e, com os dois modelos rápidos devolvendo 503 em
+     poucos segundos, ela caía no 3.5-flash, que leva mais de 30 s, e o visitante acabava
+     clicando em "tentar de novo" até funcionar. Insistindo, cada rodada usa só os dois
+     primeiros modelos ELEGÍVEIS, com uma espera crescente entre elas: repetir os rápidos
+     sai mais barato que esperar os lentos. Um modelo sai da disputa só com erro que não
+     passa com o tempo (404, sumiu; 429, cota) — aí o próximo da fila sobe no lugar dele.
+     Sem insistir, a rodada é uma só e percorre a fila inteira, como sempre foi. */
+  const temporario = (st) => TRANSITORIOS.has(st);
+  const minimoUtil = Math.min(4000, prazoTentativa / 3);
+  const rodadas = insistir && !modeloForcado ? RODADAS_MAX : 1;
+  const esperaBase = Number(env.ESPERA_RODADA_MS ?? ESPERA_RODADA_PADRAO);
+
+  for (let n = 1; n <= rodadas; n++) {
+    const elegiveis = fila.filter(m => !estado.has(m) || temporario(estado.get(m)));
+    if (!elegiveis.length) break;
+    const venceu = await rodada(rodadas > 1 ? elegiveis.slice(0, 2) : elegiveis);
+    if (venceu) {
+      const { r, reservaUsada } = venceu;
+      return { resposta: r.resposta, p: { ...p, modelo: r.modelo }, reserva: reservaUsada, rodadas: n };
     }
-
-    ultimo = r.erro;
-    if (r.erro.status === 429) viuCota = true;
-    /* Falhou. Se a reserva ainda não tinha disparado, ela deixa de fazer sentido: o
-       próximo da fila entra agora, como substituto. Com outra tentativa ainda correndo,
-       espera por ela em vez de abrir uma terceira frente. */
-    reservaPendente = false;
-    if (!correndo.size) lancar();
+    if (n === rodadas) break;
+    const espera = esperaBase * 2 ** (n - 1);
+    if (limite - Date.now() < espera + minimoUtil) break;   /* não sobra tempo para uma tentativa útil */
+    await new Promise((ok) => setTimeout(ok, espera));
   }
 
   if (viuCota || ultimo?.status === 429) {
@@ -701,13 +740,15 @@ async function rotaConsulta(req, env, origem, modeloForcado) {
     return json({ erro: `pergunta acima de ${MAX_CARACTERES_PERGUNTA} caracteres` }, 400, origem);
   }
 
-  const { resposta, p, reserva } = await chamar(env, {
+  const { resposta, p, reserva, rodadas } = await chamar(env, {
     sistema: SCHEMA + QUEM_SOU + ROTEAMENTO + REGRAS_SQL + historicoEmTexto(historico),
     usuario: pergunta.trim(),
     esquema: ESQUEMA_CONSULTA,
     maxTokens: 900,
     modeloForcado,
     atrasoReserva: Number(env.ATRASO_RESERVA_MS ?? ATRASO_RESERVA_PADRAO),
+    insistir: true,
+    prazoTotal: Number(env.PRAZO_CONSULTA_MS ?? PRAZO_CONSULTA_PADRAO),
   });
 
   let plano;
@@ -722,7 +763,7 @@ async function rotaConsulta(req, env, origem, modeloForcado) {
   if (plano.tipo === "conversa") {
     const texto = String(plano.resposta ?? "").trim();
     if (!texto) return json({ erro: "o modelo não escreveu a resposta" }, 502, origem);
-    return json({ tipo: "conversa", resposta: texto, modelo: p.modelo, reserva }, 200, origem);
+    return json({ tipo: "conversa", resposta: texto, modelo: p.modelo, reserva, rodadas }, 200, origem);
   }
 
   const motivo = sqlSuspeito(plano.sql);
@@ -734,7 +775,7 @@ async function rotaConsulta(req, env, origem, modeloForcado) {
      e volta a ser "" aqui — senão o rótulo do gráfico sairia "12 nenhuma". */
   if (plano.unidade === "nenhuma") plano.unidade = "";
 
-  return json({ ...plano, modelo: p.modelo, reserva }, 200, origem);
+  return json({ ...plano, modelo: p.modelo, reserva, rodadas }, 200, origem);
 }
 
 async function rotaNarrar(req, env, origem, modeloForcado) {
@@ -761,6 +802,7 @@ async function rotaNarrar(req, env, origem, modeloForcado) {
     stream: true,
     modeloForcado,
     preferido: env.MODELO_NARRACAO,
+    prazoTotal: Number(env.PRAZO_NARRACAO_MS ?? PRAZO_NARRACAO_PADRAO),
   });
 
   // Reempacota o SSE do provedor num formato único, para a página não saber qual IA respondeu.
@@ -840,6 +882,8 @@ async function rotaSaude(env, url, origem) {
     reservas: String(env.MODELOS_RESERVA ?? "").split(",").map(x => x.trim()).filter(Boolean),
     modelo_narracao: env.MODELO_NARRACAO ?? cfg.p.modelo,
     atraso_reserva_ms: Number(env.ATRASO_RESERVA_MS ?? ATRASO_RESERVA_PADRAO),
+    prazo_consulta_ms: Number(env.PRAZO_CONSULTA_MS ?? PRAZO_CONSULTA_PADRAO),
+    prazo_narracao_ms: Number(env.PRAZO_NARRACAO_MS ?? PRAZO_NARRACAO_PADRAO),
   };
 
   if (url.searchParams.get("testar") !== "1") {
@@ -937,8 +981,8 @@ export default {
         429: "A cota diária de IA do free tier acabou — ela reinicia à meia-noite no "
            + "Pacífico. As perguntas prontas continuam funcionando: elas rodam SQL local "
            + "e não dependem do modelo.",
-        503: "A IA está congestionada neste momento. Tente de novo em alguns segundos — "
-           + "as perguntas prontas não dependem dela.",
+        503: "A IA gratuita não respondeu, mesmo insistindo por quase um minuto. Tente de "
+           + "novo daqui a pouco — as perguntas prontas respondem na hora, sem ela.",
         500: "Não consegui responder agora.",
       }[status];
       console.error("falha:", e.message);

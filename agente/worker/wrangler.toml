@@ -58,6 +58,15 @@ PRAZO_TOTAL_MS     = "40000"
 # reserva. Custa uma chamada extra ao provedor só nas perguntas lentas. "0" desliga.
 ATRASO_RESERVA_MS  = "6000"
 
+# Quanto cada rota insiste antes de desistir. A consulta insiste por até um minuto: se os
+# dois modelos rápidos devolvem "high demand", ela espera 1,5 s, 3 s e 6 s e tenta de novo
+# com eles, em vez de cair no 3.5-flash (30 s) ou mostrar erro — no free tier o
+# congestionamento quase sempre passa em segundos. A narração desiste cedo porque a
+# página tem saída sem ela: o gráfico já está na tela e o texto sai da própria tabela.
+# PRAZO_TOTAL_MS acima vale só para o /saude?testar=1.
+PRAZO_CONSULTA_MS  = "60000"
+PRAZO_NARRACAO_MS  = "25000"
+
 # Contadores de rate limit e do teto diário.
 # Criar com:  wrangler kv namespace create CONTADORES
 # e colar o id devolvido aqui.
