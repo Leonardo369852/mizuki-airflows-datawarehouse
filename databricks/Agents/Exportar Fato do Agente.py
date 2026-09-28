@@ -183,8 +183,20 @@ print(f"  Soma de voos: {total_voos:,}  (tem de fechar com a OBT)")
 # MAGIC `razao_social` vem da Bronze com mojibake nas estrangeiras — corrigido aqui pelo
 # MAGIC `corrigir_encoding`. `nacional` separa os dois cadastros de origem, que é o corte que
 # MAGIC explica a maior diferença de pontualidade do dataset (81,8% contra 67,2%).
+# MAGIC
+# MAGIC `marca` é o nome comercial, porque a razão social esconde a marca: a LATAM Brasil, maior
+# MAGIC empresa da base, é "TAM LINHAS AÉREAS S.A.". Quem pergunta "voos da LATAM" e filtra
+# MAGIC `nome ILIKE '%LATAM%'` pega a LATAM chilena e soma 14 mil voos em vez de 302 mil — um
+# MAGIC número plausível e errado, sem erro nenhum aparecendo. A marca agrupa as operadoras do
+# MAGIC grupo; `nacional` separa a brasileira das estrangeiras.
 
 # COMMAND ----------
+
+MARCAS = {
+    "TAM": "LATAM", "LAN": "LATAM", "LPE": "LATAM", "LNE": "LATAM",   # Brasil, Chile, Peru, Equador
+    "GLO": "GOL",
+    "AZU": "AZUL", "ACN": "AZUL",                                        # Azul e Azul Conecta
+}
 
 emp = spark.sql("""
 SELECT
@@ -202,6 +214,9 @@ GROUP BY icao_empresa
 
 emp["nome"] = emp["nome"].map(corrigir_encoding)
 emp["nacional"] = emp["origem_cadastro"].str.contains("nacion", case=False, na=False)
+emp["marca"] = emp["icao_empresa"].map(MARCAS)
+ausentes = sorted(set(MARCAS) - set(emp["icao_empresa"]))
+assert not ausentes, f"ICAO de marca que sumiu da base: {ausentes}"   # renomeação na fonte
 
 reparados = spark.sql("""
 SELECT COUNT(DISTINCT icao_empresa) AS n FROM mizukiairflows.gold.obt_voos
@@ -222,11 +237,30 @@ print(f"  Nacionais: {int(emp['nacional'].sum())}   Estrangeiras: {int((~emp['na
 # MAGIC duas vezes com apelidos diferentes, exatamente como a `fato_voos` faz no Databricks.
 # MAGIC
 # MAGIC `latitude`/`longitude` vêm daqui e são o que permite ao agente desenhar o mapa.
+# MAGIC
+# MAGIC Na Gold, `uf` guarda o nome por extenso ("São Paulo"). Qualquer um — pessoa ou modelo —
+# MAGIC lê "uf" como sigla e escreve `uf = 'SP'`, que devolve zero linhas para o estado com mais
+# MAGIC voos do país. Aqui `uf` passa a ser a sigla que o nome promete, e o nome por extenso vai
+# MAGIC para `estado`.
 
 # COMMAND ----------
 
+SIGLAS = {
+    "Acre": "AC", "Alagoas": "AL", "Amapá": "AP", "Amazonas": "AM", "Bahia": "BA",
+    "Ceará": "CE", "Distrito Federal": "DF", "Espírito Santo": "ES", "Goiás": "GO",
+    "Maranhão": "MA", "Mato Grosso": "MT", "Mato Grosso do Sul": "MS", "Minas Gerais": "MG",
+    "Pará": "PA", "Paraíba": "PB", "Paraná": "PR", "Pernambuco": "PE", "Piauí": "PI",
+    "Rio de Janeiro": "RJ", "Rio Grande do Norte": "RN", "Rio Grande do Sul": "RS",
+    "Rondônia": "RO", "Roraima": "RR", "Santa Catarina": "SC", "São Paulo": "SP",
+    "Sergipe": "SE", "Tocantins": "TO",
+}
+valores_siglas = ", ".join(f"('{estado}', '{uf}')" for estado, uf in SIGLAS.items())
+
 aero_sql = f"""
-WITH partidas AS (
+WITH siglas AS (
+  SELECT * FROM VALUES {valores_siglas} AS t(estado, uf)
+),
+partidas AS (
   SELECT icao_origem AS icao, COUNT(*) AS partidas
   FROM mizukiairflows.gold.obt_voos GROUP BY icao_origem
 ),
@@ -247,12 +281,14 @@ SELECT
   c.icao,
   MAX(c.nome)      AS nome,
   MAX(c.municipio) AS municipio,
-  MAX(c.uf)        AS uf,
+  MAX(s.uf)        AS uf,
+  MAX(c.uf)        AS estado,
   MAX(c.latitude)  AS latitude,
   MAX(c.longitude) AS longitude,
   COALESCE(MAX(p.partidas), 0) AS partidas,
   COALESCE(MAX(ch.chegadas), 0) AS chegadas
 FROM cadastro c
+LEFT JOIN siglas   s  ON c.uf = s.estado
 LEFT JOIN partidas p  ON c.icao = p.icao
 LEFT JOIN chegadas ch ON c.icao = ch.icao
 GROUP BY c.icao
@@ -264,6 +300,8 @@ n_aero, b_aero, pdf_aero = salvar(spark.sql(aero_sql), "dim_aerodromo", ordem=["
 sem_coord = int(pdf_aero["latitude"].isna().sum())
 sem_munic = int(pdf_aero["municipio"].isna().sum())
 print(f"\n  Sem coordenadas: {sem_coord}   Sem município: {sem_munic}")
+sem_sigla = sorted(pdf_aero.loc[pdf_aero["estado"].notna() & pdf_aero["uf"].isna(), "estado"].unique())
+assert not sem_sigla, f"estado sem sigla no mapeamento: {sem_sigla}"
 
 # COMMAND ----------
 
