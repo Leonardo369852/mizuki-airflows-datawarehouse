@@ -70,12 +70,24 @@ TABELA fato_voos — agregada, uma linha por combinação de chaves
 
 TABELA dim_empresa
   icao_empresa TEXT, nome TEXT, iata TEXT, servico TEXT, origem_cadastro TEXT,
-  situacao TEXT, voos_no_periodo BIGINT, nacional BOOL
+  situacao TEXT, voos_no_periodo BIGINT, nacional BOOL, marca TEXT
+  "nome" é a RAZÃO SOCIAL, e ela esconde a marca: a LATAM Brasil é 'TAM LINHAS AÉREAS S.A.'.
+  Para LATAM, GOL ou AZUL filtre SEMPRE por marca: e.marca = 'LATAM'. Nunca por nome — o
+  nome com LATAM é o da LATAM chilena, e o total sairia plausível e errado. A marca agrupa
+  as operadoras do grupo (LATAM: Brasil, Chile, Peru, Equador; AZUL: Azul e Azul Conecta);
+  some AND e.nacional para só a brasileira, e diga no aviso quais entraram. Para as demais
+  empresas, marca é NULL: busque por nome, normalizado como na regra de texto abaixo.
 
 TABELA dim_aerodromo
-  icao TEXT, nome TEXT, municipio TEXT, uf TEXT, rotulo TEXT,
+  icao TEXT, nome TEXT, municipio TEXT, uf TEXT, estado TEXT, rotulo TEXT,
   latitude DOUBLE, longitude DOUBLE, partidas BIGINT, chegadas BIGINT
   Use SEMPRE "rotulo" para nomear um aeroporto — ver problema 6.
+  uf é a SIGLA: 'SP', 'MG', 'RJ'. estado é o nome por extenso: 'São Paulo'. Para estado,
+  filtre por uf = 'SP' — é exato e não depende de acento.
+  municipio está em MAIÚSCULAS e com acento: 'SÃO PAULO', 'BELO HORIZONTE', 'CONFINS'.
+  "São Paulo" sem qualificação é o estado (uf = 'SP'); diga no aviso que foi o estado.
+  Para a cidade, os aeroportos ficam em mais de um município: São Paulo são 'SÃO PAULO' e
+  'GUARULHOS'; Belo Horizonte são 'BELO HORIZONTE' e 'CONFINS'.
 
 TABELA dim_rota
   icao_origem TEXT, icao_destino TEXT, distancia_km DOUBLE, faixa_distancia TEXT,
@@ -192,6 +204,13 @@ Obrigatório:
 - Nomes de empresa e aeroporto vêm das dimensões por JOIN — nunca invente um nome, nunca
   escreva um ICAO que não esteja na pergunta.
 - Apelide toda coluna de saída com AS e um nome curto em minúsculas.
+- Texto (município, nome) se compara normalizado dos dois lados, porque a base guarda em
+  maiúsculas com acento e quem pergunta escreve como quiser:
+    strip_accents(upper(a.municipio)) = 'SAO PAULO'
+    strip_accents(upper(e.nome)) LIKE '%ARAJET%'
+- Se a CONVERSA mostra que uma consulta sua retornou 0 linhas, quase sempre é um filtro de
+  texto que não bate com a base. Revise sigla, maiúsculas, acento e marca, e NÃO repita o
+  mesmo filtro. Se a pergunta for a mesma, reescreva a consulta.
 - Nomes de coluna em "x" e "y" têm de ser exatamente os apelidos do SELECT.
 - Qual dos dois é a MEDIDA depende do gráfico, e barra_horizontal é a exceção:
     barra_horizontal  x = a medida (o valor corre na horizontal), y = o rótulo
@@ -277,6 +296,9 @@ function historicoEmTexto(historico) {
     if (Array.isArray(h.amostra) && h.amostra.length) {
       l.push(`    Resultado (${h.total ?? h.amostra.length} linhas, primeiras): `
              + JSON.stringify(h.amostra).slice(0, 700));
+    }
+    if (h.total === 0) {
+      l.push("    Resultado: 0 linhas — nenhum registro bateu com os filtros desta consulta.");
     }
     if (h.resposta) {
       l.push(`    Você respondeu: ${String(h.resposta).slice(0, 320)}`);
