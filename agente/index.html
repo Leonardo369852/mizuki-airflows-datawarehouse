@@ -416,6 +416,8 @@ body { height: 100%; overflow: hidden; }
 
 /* ---------- perguntas prontas ---------- */
 .chips { display: flex; flex-wrap: wrap; gap: 7px; padding: 4px 0 18px; }
+/* As prontas oferecidas quando a IA falha, dentro do turno. */
+.saida { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 10px; }
 
 /* ---------- resultado: gráfico ocupa a largura do thread ---------- */
 .turn.res { max-width: none; }
@@ -696,6 +698,7 @@ const DUCKDB_DIST = `https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@${DUCKDB_V
 let SUGESTOES = [];
 let CONHECIMENTO = null;
 let ROTEADOR = null;     /* roteador.js: o que dá para responder sem IA */
+let MOD_ROTEADOR = null; /* o módulo, para as prontas parecidas quando a IA falha */
 let DIMENSOES = null;    /* entidades das dimensões, lidas do banco quando ele carrega */
 
 async function carregarConhecimento() {
@@ -711,6 +714,7 @@ async function carregarConhecimento() {
                    exemplos: exemplos.exemplos, fatos: fatos.fatos };
   SUGESTOES = CONHECIMENTO.exemplos.filter(e => e.chip)
     .map(e => ({ p: e.pergunta, ...montar.planoDoExemplo(e, CONHECIMENTO.fatos) }));
+  MOD_ROTEADOR = roteador;
   ROTEADOR = roteador.criarRoteador(CONHECIMENTO, DIMENSOES);
   return CONHECIMENTO;
 }
@@ -811,34 +815,21 @@ async function rodar(sql) {
    Modelo (via Worker)
    -------------------------------------------------------------------------- */
 
-/* O free tier do Gemini devolve 503 de forma intermitente: a mesma pergunta que falha
-   agora responde em 6 s dez segundos depois — medido. Um visitante que recebe erro na
-   primeira pergunta vai embora, então a página tenta de novo sozinha antes de desistir.
-   Só em 503: 429 é cota do dia e não melhora esperando dois segundos. */
-async function pedirPlano(pergunta, signal, avisar, hist = historico) {
+/* Uma ida só ao Worker. Ele já insiste por até 20 s quando a IA gratuita congestiona, e tem
+   disjuntor: repetir daqui dobrava a espera para cair no mesmo erro — antes desta regra o
+   pior caso passava de dois minutos de "Pensando". Na falha, a página oferece na hora as
+   perguntas prontas mais parecidas (ver oferecerProntas). `semCache` é o "tentar de novo":
+   pede um plano novo em vez do guardado. */
+async function pedirPlano(pergunta, signal, hist = historico, { semCache = false } = {}) {
   if (WORKER) {
-    for (let tentativa = 1; tentativa <= 2; tentativa++) {
-      const t0 = performance.now();
-      const r = await fetch(WORKER + "/consulta", {
-        method: "POST", signal,
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ pergunta, historico: hist })
-      });
-      const j = await r.json();
-      if (r.ok) return j;
-
-      /* Só repete falha RÁPIDA. Um 503 que demorou é o Worker avisando que já percorreu a
-         fila inteira de modelos até o prazo dele — repetir dobraria a espera para cair no
-         mesmo erro. Antes desta regra o pior caso passava de dois minutos de "Pensando". */
-      const rapida = performance.now() - t0 < 10000;
-      if (r.status === 503 && tentativa === 1 && rapida) {
-        avisar?.("A IA está ocupada. Tentando de novo…");
-        await new Promise(ok => setTimeout(ok, 2500));
-        if (signal.aborted) throw Object.assign(new Error("cancelado"), { name: "AbortError" });
-        continue;
-      }
-      throw new Error(j.erro || `HTTP ${r.status}`);
-    }
+    const r = await fetch(WORKER + "/consulta", {
+      method: "POST", signal,
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ pergunta, historico: hist, ...(semCache ? { semCache: true } : {}) })
+    });
+    const j = await r.json().catch(() => ({}));
+    if (r.ok) return j;
+    throw Object.assign(new Error(j.erro || `HTTP ${r.status}`), { status: r.status });
   }
   /* Sem Worker: dentro do Claude o próprio visualizador serve. Aqui o prompt vive no
      cliente por força — não há servidor para guardá-lo. */
@@ -1288,8 +1279,10 @@ function frase(plano, ls) {
     + `. São ${nf(ls.length)} linhas — o SQL e a tabela estão abaixo.`;
 }
 
-async function ask(pergunta, planoPronto) {
+async function ask(pergunta, planoPronto, opcoes = {}) {
   if (busy) return;
+  const planoOriginal = planoPronto;
+  const inicio = performance.now();
   busy = true;
   sendBtn.disabled = true;
   stopBtn.hidden = false;
@@ -1325,13 +1318,13 @@ async function ask(pergunta, planoPronto) {
     if (rota?.rota === "pronta" || rota?.rota === "template") planoPronto = rota.plano;
     const semIA = !!planoPronto;
     if (!planoPronto && !temLLM) {
-      fala(texto, "Essa pergunta precisa da IA, que não está configurada aqui. As perguntas "
-        + "prontas, e as de contagem simples por estado, aeroporto, empresa ou mês, respondem sem ela.");
+      oferecerProntas(res, texto, pergunta, "Essa pergunta precisa da IA, que não está configurada "
+        + "aqui. Estas respondem na hora, sem ela:");
       return;
     }
     if (!planoPronto) pensando(texto, "Pensando");
-    /* O Worker insiste por até um minuto quando a IA gratuita congestiona. Sem este
-       aviso, o visitante via "Pensando" parado e achava que tinha travado. */
+    /* O Worker insiste por até 20 s quando a IA gratuita congestiona. Sem este aviso, o
+       visitante via "Pensando" parado e achava que tinha travado. */
     const lento = setTimeout(() => {
       if (texto.classList.contains("pensando") && /^Pensando/.test(texto.textContent)) {
         pensando(texto, "A IA gratuita está disputada agora. Continuo tentando");
@@ -1340,7 +1333,7 @@ async function ask(pergunta, planoPronto) {
     let plano;
     try {
       plano = planoPronto
-        || await pedirPlano(pergunta, ctl.signal, m => pensando(texto, m.replace(/…$/, "")));
+        || await pedirPlano(pergunta, ctl.signal, historico, { semCache: !!opcoes.semCache });
     } finally {
       clearTimeout(lento);
     }
@@ -1364,12 +1357,13 @@ async function ask(pergunta, planoPronto) {
        base. O caso medido: "uf = 'SP'" contra uma coluna que guardava "São Paulo", e o
        estado com mais voos do país aparecia vazio. O agente reescreve UMA vez, sabendo que
        a primeira voltou vazia. Custa uma chamada, e só nesse caso. Pergunta pronta não
-       entra: o SQL dela foi escrito à mão. */
+       entra: o SQL dela foi escrito à mão. Só revisa se a primeira veio rápido: com a IA
+       congestionada, uma segunda ida passaria dos ~20 s de espera que a página promete. */
     let sqlVazio = null;
-    if (!linhas.length && temLLM && !planoPronto) {
+    if (!linhas.length && temLLM && !planoPronto && performance.now() - inicio < 8000) {
       pensando(texto, "Revisando a consulta");
       sqlVazio = plano.sql;
-      const novo = await pedirPlano(pergunta, ctl.signal, m => pensando(texto, m.replace(/…$/, "")),
+      const novo = await pedirPlano(pergunta, ctl.signal,
         [...historico, { pergunta, sql: plano.sql, amostra: [], total: 0 }]);
       if (novo.tipo === "conversa") {
         fala(texto, novo.resposta);
@@ -1459,24 +1453,49 @@ async function ask(pergunta, planoPronto) {
     if (e.name === "AbortError") {
       fala(texto, "Interrompido.");
     } else {
-      fala(texto, String(e.message || e));
       console.error(e);
-      /* O free tier do Gemini congestiona, e aí a resposta certa é tentar de novo — não
-         deixar o visitante olhando uma mensagem de erro sem saída. */
-      const btn = document.createElement("button");
-      btn.type = "button"; btn.className = "chip";
-      btn.textContent = "tentar de novo";
-      btn.style.marginTop = "8px";
-      btn.addEventListener("click", () => {
+      /* O free tier do Gemini congestiona, e a mensagem de erro sozinha deixava o visitante
+         sem saída. A saída são as perguntas prontas mais parecidas, que respondem na hora,
+         e o "tentar de novo", que pede um plano novo em vez do guardado. */
+      const mensagem = e.status ? String(e.message)
+        : /fetch|network|rede/i.test(String(e.message)) ? "Não consegui falar com o servidor da IA agora."
+        : String(e.message || e);
+      oferecerProntas(res, texto, pergunta, mensagem, () => {
         res.previousElementSibling?.remove();   /* a bolha da pergunta, que ask() recria */
         res.remove();
-        ask(pergunta, planoPronto);
+        ask(pergunta, planoOriginal, { semCache: true });
       });
-      res.appendChild(btn);
     }
   } finally {
     busy = false; sendBtn.disabled = false; stopBtn.hidden = true; ctl = null;
   }
+}
+
+/* Quando a IA não responde — congestionada, em pausa, sem cota ou sem Worker —, a resposta
+   vira outra pergunta que responde na hora: as três prontas mais parecidas com a que foi
+   feita (roteador.js, prontasParecidas). */
+function oferecerProntas(res, texto, pergunta, mensagem, tentarDeNovo) {
+  fala(texto, mensagem);
+  const caixa = document.createElement("div");
+  caixa.className = "saida";
+  const parecidas = MOD_ROTEADOR && CONHECIMENTO
+    ? MOD_ROTEADOR.prontasParecidas(pergunta, CONHECIMENTO.exemplos, 3) : [];
+  for (const ex of parecidas) {
+    const s = SUGESTOES.find(x => x.p === ex.pergunta);
+    if (!s) continue;
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "chip"; b.textContent = s.p;
+    b.addEventListener("click", () => ask(s.p, s));
+    caixa.appendChild(b);
+  }
+  if (tentarDeNovo) {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "chip"; b.textContent = "tentar de novo";
+    b.addEventListener("click", tentarDeNovo);
+    caixa.appendChild(b);
+  }
+  if (caixa.children.length) res.appendChild(caixa);
+  aoFundo();
 }
 
 sendBtn.addEventListener("click", () => {

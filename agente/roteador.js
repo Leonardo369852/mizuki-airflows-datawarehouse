@@ -457,13 +457,20 @@ export function prontasParecidas(pergunta, exemplos, n = 3) {
     .map(({ e }) => e);
 }
 
-/** Os n exemplos mais parecidos com a pergunta — os que o /consulta põe no prompt. */
-export function exemplosParecidos(pergunta, exemplos, n = 4) {
+/** Os n exemplos mais parecidos com a pergunta — os que o /consulta põe no prompt. Com menos
+    de `minimo` parecidos, completa com as perguntas prontas (as primeiras do arquivo): mesmo
+    sem parentesco, elas mostram o formato do plano. */
+export function exemplosParecidos(pergunta, exemplos, n = 4, minimo = 3) {
   const minhas = chaves(normalizar(pergunta));
-  return exemplos
+  const escolhidos = exemplos
     .map((e) => ({ e, s: semelhanca(minhas, chaves(normalizar(e.pergunta))) }))
     .filter(({ s }) => s > 0)
     .sort((a, b) => b.s - a.s)
     .slice(0, n)
     .map(({ e }) => e);
+  for (const e of exemplos) {
+    if (escolhidos.length >= minimo) break;
+    if (!escolhidos.includes(e)) escolhidos.push(e);
+  }
+  return escolhidos;
 }

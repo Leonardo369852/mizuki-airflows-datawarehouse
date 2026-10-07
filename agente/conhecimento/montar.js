@@ -73,28 +73,22 @@ export function regrasSqlEmTexto(sem) {
   return "\n" + juntar(sem.regras_sql) + "\n";
 }
 
-/** Quem o agente é, por inteiro: demonstração, limites do grão. */
-export function identidadeEmTexto(ide, fatos) {
-  const p = (t) => preencher(t, fatos);
+/** A identidade em duas linhas: saudação, "quem é você" e "como funciona" saem prontas na
+    página, sem IA, então o prompt só precisa do bastante para o caso de uma escapar. */
+export function resumoEmTexto(ide, fatos) {
+  return "\nQUEM VOCÊ É\n" + ide.resumo.map((t) => preencher(t, fatos)).join("\n") + "\n";
+}
+
+/** O que o grão não sustenta. Fica no prompt mesmo com o roteador na página, porque é o que
+    impede o modelo de inventar uma consulta para uma pergunta que escapou dele. */
+export function limitesEmTexto(ide, fatos) {
   return [
     "",
-    "QUEM VOCÊ É — use isto quando perguntarem sobre você ou sobre o projeto",
-    ...ide.quem_sou.map(p),
-    "",
-    "VOCÊ É UMA DEMONSTRAÇÃO, E DEVE DIZER ISSO",
-    ...ide.demonstracao.map(p),
-    "",
     "O que você NÃO consegue responder, por causa do grão agregado — diga com franqueza quando for o caso:",
-    ...ide.nao_responde.map((n) => `  · ${p(n.texto)}${n.genie ? "; o Genie do projeto responde" : ""}`),
+    ...ide.nao_responde.map((n) => `  · ${preencher(n.texto, fatos)}${n.genie ? "; o Genie do projeto responde" : ""}`),
     "Nunca finja que consegue. Nunca invente uma consulta para uma dessas: responda em \"conversa\", diga o que falta e por quê.",
     "",
   ].join("\n");
-}
-
-/** A identidade em duas linhas, para o /consulta: saudação e "quem é você" já saem prontas na
-    página, sem IA, então o prompt só precisa do bastante para o caso de uma escapar. */
-export function resumoEmTexto(ide, fatos) {
-  return "\n" + ide.resumo.map((t) => preencher(t, fatos)).join("\n") + "\n";
 }
 
 export function roteamentoEmTexto(ide) {
@@ -112,11 +106,12 @@ export function regrasNarracaoEmTexto(ide) {
   return ["", ide.narracao.papel, "", ...ide.narracao.regras, ""].join("\n");
 }
 
-/** O prompt fixo do /consulta, na ordem em que vai ao modelo. A conversa entra depois, no fim:
-    o começo igual entre perguntas é o que o provedor consegue reaproveitar. */
+/** O prompt fixo do /consulta, na ordem em que vai ao modelo. Os exemplos escolhidos para a
+    pergunta e a conversa entram depois, no fim: o começo igual entre perguntas é o que o
+    provedor consegue reaproveitar. */
 export function promptConsulta({ semantica, identidade, fatos }) {
-  return semanticaEmTexto(semantica, fatos) + identidadeEmTexto(identidade, fatos)
-       + roteamentoEmTexto(identidade) + regrasSqlEmTexto(semantica);
+  return semanticaEmTexto(semantica, fatos) + resumoEmTexto(identidade, fatos)
+       + limitesEmTexto(identidade, fatos) + roteamentoEmTexto(identidade) + regrasSqlEmTexto(semantica);
 }
 
 /** O prompt fixo do /narrar: só o que a narração usa — nada de colunas nem regras de SQL. */
