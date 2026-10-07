@@ -54,8 +54,24 @@
       "- Sem saudação, sem \"ótima pergunta\", sem oferecer ajuda extra, sem repetir a pergunta."
     ]
   },
+  "gatilhos": {
+    "sobre": "Expressões regulares sobre o texto normalizado (minúsculo, sem acento, sem pontuação exceto : e /). Saudação e agradecimento valem só para a mensagem inteira; o resto, em qualquer ponto dela. Usadas por agente/roteador.js para responder sem IA.",
+    "saudacao": "^(oi+|ola|ole|opa|eai|e ai|hey|hello|hi|salve|fala|bom dia|boa tarde|boa noite)( (tudo bem|tudo bom|td bem|como vai|beleza|blz))?( agente)?$",
+    "agradecimento": "^(muito )?(obrigad[oa]|obg|valeu|vlw|brigad[oa]|thanks|thank you|grat[oa])( [a-z ]{0,30})?$",
+    "identidade": "\\b(quem (e|eh) (voce|vc|tu)|quem (e|eh) o agente|o que (e|eh) (voce|vc)|quem (te|lhe) (criou|fez|desenvolveu)|qual (e )?(o )?seu nome|se apresent[ae]|voce (e|eh) (um |uma )?(robo|ia|bot|humano|pessoa))\\b",
+    "funcionamento": "\\b(como (voce|vc|isso|isto|o agente|esse agente|tu) funciona|de onde (vem|veem|saem) (os |esses |estes )?dados|qual (e )?(a )?fonte dos dados|como (voce|vc) (sabe|calcula|responde)|que dados (voce|vc) (usa|tem|consulta))\\b|^como (isso |isto )?funciona$",
+    "ajuda": "^(ajuda|help|socorro|menu|exemplos?)$|\\bo que (eu )?(posso|da pra|da para|consigo|devo) perguntar\\b|\\bo que (voce|vc) (sabe|faz|responde|consegue)\\b|\\b(me )?(de|da|mostre|mostra) (uns |alguns )?exemplos?\\b|\\bcomo (eu )?(uso|usar|pergunto|perguntar)\\b",
+    "fora_do_grao": {
+      "motivo_cancelamento": "\\b(motivos?|razao|razoes|causas?|por que|porque|pq|justificativas?)\\b.*\\bcancel|\\bcancel.*\\b(motivos?|razao|razoes|causas?|por que|porque|pq|justificativas?)\\b",
+      "atraso_recuperado": "\\b(recuperad[oa]s?|recuperou|recuperar|recupera)\\b.*\\batras|\\batras.*\\b(recuperad[oa]s?|recuperou|recuperar|recupera)\\b",
+      "status_aerodromo": "\\bstatus (operacional )?d[oa]s? aero|\\b(aeroporto|aerodromo) (esta |ta )?(aberto|fechado|interditado|operando)\\b",
+      "voo_especifico": "\\bnumero do voo\\b|\\bvoo (?!(de|da|do|em|no|na|um|eu|se|ao|os|as|ou|me|te|la)\\b)(numero |n )?([a-z]{2}|[a-z][0-9]|[0-9][a-z]) ?[0-9]{2,4}\\b|\\bvoo (numero |n )?[0-9]{3,4}\\b",
+      "horario": "\\b(que horas|horario exato|horario do (voo|primeiro|ultimo)|as [0-9]{1,2} ?(h|hs|horas)|[0-9]{1,2}h[0-9]{2}|[0-9]{1,2}:[0-9]{2})\\b",
+      "por_dia": "\\b(dia [0-9]{1,2}|[0-9]{1,2} de (janeiro|fevereiro|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)|[0-9]{1,2}/[0-9]{1,2}|ontem|anteontem|hoje|amanha|semana passada|segunda feira|terca feira|quarta feira|quinta feira|sexta feira|sabado|domingo|vespera|reveillon|ano novo|carnaval|feriado)\\b"
+    }
+  },
   "respostas": {
-    "saudacao": "Olá! Eu respondo perguntas sobre voos comerciais brasileiros de {periodo}: pontualidade, atrasos, cancelamentos, empresas, aeroportos e rotas. Pergunte em português ou use uma das perguntas prontas.",
+    "saudacao":"Olá! Eu respondo perguntas sobre voos comerciais brasileiros de {periodo}: pontualidade, atrasos, cancelamentos, empresas, aeroportos e rotas. Pergunte em português ou use uma das perguntas prontas.",
     "identidade": "Sou o agente do Mizuki Airflows, um data warehouse de voos comerciais brasileiros feito em Databricks sobre os dados abertos da ANAC. Traduzo a sua pergunta em SQL, e a consulta roda aqui, no seu navegador, sobre {linhas_fato} linhas agregadas de {voos} voos ({periodo}). Sou uma demonstração: o agente completo do projeto é um Genie space dentro do Databricks.",
     "funcionamento": "Em três passos: a IA traduz a pergunta em uma consulta SQL; a consulta roda aqui, no seu navegador, com DuckDB, sobre os dados exportados da camada Gold; e o resultado vira gráfico, tabela e texto. Toda resposta mostra o SQL que produziu o número. As perguntas prontas, e as que eu reconheço sozinho, nem passam pela IA.",
     "ajuda": "Dá para perguntar sobre pontualidade, atrasos, cancelamentos, empresas, aeroportos, estados, rotas e meses — por exemplo, \"qual a pontualidade da GOL?\", \"quantos voos partiram de Minas Gerais?\" ou \"quais rotas saindo de Guarulhos têm mais voos?\". O que a base não tem: voo específico, corte por dia, horário exato e motivo de cancelamento.",

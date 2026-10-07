@@ -9,6 +9,7 @@ executa o SQL no DuckDB, sobre os mesmos Parquet de `agente/dados/`.
 | `perguntas.json` | 31 perguntas com a rota esperada (`fixa`, `pronta`, `template`, `ia`) e o gabarito: um SQL por interpretação aceita e os valores-chave que ele devolve |
 | `avaliar.py` | gabarito, modo seco, rodada ao vivo e relatório |
 | `medidor.js` | embrulha o Worker no `wrangler dev` e anota cada chamada ao provedor: modelo, status, tempo e tokens (inclusive os de raciocínio) |
+| `ponte.mjs` | roda o roteador da página (`agente/roteador.js`) para o avaliador — o mesmo código, sem cópia em Python |
 | `gravacoes/` | o que voltou em cada rodada ao vivo — o relatório se refaz daqui, sem gastar cota |
 | `relatorios/` | um `.md` por rodada |
 
@@ -17,6 +18,8 @@ executa o SQL no DuckDB, sobre os mesmos Parquet de `agente/dados/`.
 ```bash
 python agente/avaliacao/avaliar.py gabarito --conferir    # o gabarito ainda bate com os Parquet?
 python agente/avaliacao/avaliar.py seco                   # o avaliador reprova o que tem de reprovar?
+python agente/avaliacao/avaliar.py offline NOME           # as 31 pelo roteador, sem rede nem cota
+python agente/avaliacao/avaliar.py offline NOME --ia GRAV # idem, com as de IA tiradas de uma gravação
 python agente/avaliacao/avaliar.py ao-vivo NOME --worker atual    # gasta cota
 python agente/avaliacao/avaliar.py relatorio NOME          # corrige de novo uma gravação
 ```

@@ -2,6 +2,7 @@
 
     python agente/avaliacao/avaliar.py gabarito [--conferir]
     python agente/avaliacao/avaliar.py seco
+    python agente/avaliacao/avaliar.py offline RODADA [--ia GRAVACAO]
     python agente/avaliacao/avaliar.py ao-vivo RODADA --worker REV [--chave-falsa] [--ids a,b]
     python agente/avaliacao/avaliar.py relatorio RODADA
 
@@ -9,6 +10,9 @@ gabarito   roda no DuckDB o SQL de cada alternativa e grava os valores-chave em 
            --conferir só compara com o que está gravado e sai com 1 se algo mudou.
 seco       corrige respostas montadas aqui mesmo, sem rede e sem cota, e prova que o avaliador
            reprova o que tem de reprovar — inclusive o 322.327 do print.
+offline    as 31 perguntas pelo roteador da página (agente/roteador.js, via ponte.mjs), sem rede:
+           fixa, pronta e template são respondidas e corrigidas; as que vão para a IA ficam "não
+           medidas", ou vêm de uma gravação ao vivo com --ia.
 ao-vivo    sobe o `wrangler dev` com o medidor, faz as perguntas marcadas "ao_vivo" do jeito que a
            página faz e grava tudo em gravacoes/RODADA.json. É a única parte que gasta cota.
            --worker escolhe a versão: um commit (a linha de base se mede no original, não numa
@@ -195,6 +199,8 @@ def faltando(alt: dict, linhas: list[dict]) -> list[str]:
 
 
 def corrigir(q: dict, r: dict, fatos: list[float]) -> dict:
+    if r.get("medida") is False:
+        return {"ok": None, "motivo": "não medida (vai à IA)", "desconhecidos": []}
     esp = q["esperado"]
     conhecidos = (numeros_do_resultado(r.get("linhas") or []) + fatos
                   + numeros_em(q["pergunta"]) + SEMPRE_CONHECIDOS)
@@ -303,6 +309,90 @@ def cmd_seco(args) -> int:
     print(f"\n{len(casos) - errados} de {len(casos)} vereditos certos "
           f"({certas} respostas certas aprovadas e {len(casos) - certas} defeitos plantados)")
     return 1 if errados else 0
+
+
+# ─── offline: o roteador da página ────────────────────────────────────────────
+
+class Ponte:
+    """O roteador da página rodando em Node, sem cópia em Python: um pedido JSON por linha."""
+
+    def __enter__(self):
+        self.proc = subprocess.Popen(["node", str(AQUI / "ponte.mjs")], stdin=subprocess.PIPE,
+                                     stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                                     text=True, encoding="utf-8", bufsize=1)
+        return self
+
+    def pedir(self, pedido: dict) -> dict:
+        self.proc.stdin.write(json.dumps(pedido, ensure_ascii=False) + "\n")
+        self.proc.stdin.flush()
+        resposta = json.loads(self.proc.stdout.readline())
+        if "erro" in resposta and "rota" not in resposta:
+            raise RuntimeError(resposta["erro"])
+        return resposta
+
+    def __exit__(self, *_):
+        self.proc.stdin.close()
+        self.proc.wait(timeout=10)
+
+
+def dimensoes(con) -> dict:
+    """As mesmas três leituras que a página faz quando o banco carrega."""
+    return {
+        "aerodromos": rodar(con, "SELECT icao, nome, municipio, uf, estado, rotulo FROM dim_aerodromo"),
+        "empresas": rodar(con, "SELECT icao_empresa, nome, iata, marca FROM dim_empresa"),
+        "meses": rodar(con, "SELECT ano_mes, nome_mes, dias_com_voo FROM dim_tempo "
+                            "WHERE ano_mes IS NOT NULL ORDER BY ordem"),
+    }
+
+
+def responder_sem_ia(con, q: dict, r: dict) -> dict:
+    """O que a página faz com uma rota que não é IA: texto fixo, ou o plano pronto no DuckDB."""
+    res = {"id": q["id"], "pergunta": q["pergunta"], "rota": r["rota"], "passos": [], "planos": [],
+           "tipo": None, "texto": "", "sql": None, "linhas": [], "erro": None}
+    t0 = time.perf_counter()
+    if r["rota"] == "fixa":
+        res["tipo"], res["texto"], res["intencao"] = "conversa", r["texto"], r.get("intencao")
+    else:
+        plano = r["plano"]
+        res["tipo"], res["sql"], res["plano"] = "consulta", plano["sql"], plano
+        try:
+            res["linhas"] = executar(con, plano["sql"])[:100]
+        except Falha as e:
+            res["erro"] = str(e)
+    res["segundos"] = round(r.get("ms", 0) / 1000 + time.perf_counter() - t0, 4)
+    return res
+
+
+def cmd_offline(args) -> int:
+    dados = carregar()
+    con = abrir_banco()
+    ao_vivo = {}
+    if args.ia:
+        ao_vivo = {r["id"]: r for r in json.loads((GRAVACOES / f"{args.ia}.json").read_text(encoding="utf-8"))["resultados"]}
+    resultados, rotas = [], {}
+    with Ponte() as ponte:
+        ponte.pedir({"op": "iniciar", "dims": dimensoes(con)})
+        for q in dados["perguntas"]:
+            r = ponte.pedir({"op": "rotear", "pergunta": q["pergunta"], "historico": q.get("historico", [])})
+            rotas[q["id"]] = r["rota"]
+            if r["rota"] != "ia":
+                resultados.append(responder_sem_ia(con, q, r))
+            elif q["id"] in ao_vivo:
+                resultados.append({**ao_vivo[q["id"]], "rota": "ia"})
+            else:
+                resultados.append({"id": q["id"], "pergunta": q["pergunta"], "rota": "ia", "medida": False,
+                                   "passos": [], "planos": [], "segundos": None, "motivo_ia": r.get("motivo")})
+    fonte = (WORKER / "worker.js").read_text(encoding="utf-8")
+    gravacao = {
+        "rodada": args.rodada, "quando": dt.datetime.now().isoformat(timespec="seconds"),
+        "worker": "atual (offline)" + (f" + IA de {args.ia}" if args.ia else ""), "chave_falsa": False,
+        "saude": {}, "fatos_do_prompt": fatos_da_fonte(fonte, conhecimento_da_versao("atual")),
+        "rotas_de_todas": rotas, "resultados": resultados,
+    }
+    GRAVACOES.mkdir(exist_ok=True)
+    (GRAVACOES / f"{args.rodada}.json").write_text(json.dumps(gravacao, ensure_ascii=False, indent=1) + "\n",
+                                                  encoding="utf-8")
+    return relatorio(args.rodada)
 
 
 # ─── ao vivo ──────────────────────────────────────────────────────────────────
@@ -560,7 +650,9 @@ def percentil(vals: list[float], p: float):
 
 
 def seg(v) -> str:
-    return "-" if v is None else br(v, 1) + " s"
+    if v is None:
+        return "-"
+    return f"{round(v * 1000)} ms" if v < 1 else br(v, 1) + " s"
 
 
 def cmd_relatorio(args) -> int:
@@ -572,19 +664,23 @@ def relatorio(rodada: str) -> int:
     pq = {q["id"]: q for q in carregar()["perguntas"]}
     fatos = grav["fatos_do_prompt"]
     linhas, respostas, por_modelo = [], [], {}
-    acertos = textos_ok = 0
-    tempos, chamadas_q, posts_q, pensou = [], [], [], []
-    reservas = rodadas_extras = 0
+    medidas, simples = [], []                  # correções das perguntas medidas; das de rota sem IA
+    tempos = {"sem IA": [], "IA": []}
+    chamadas_q, posts_q, pensou = [], [], []
+    reservas = rodadas_extras = planos = 0
     for r in grav["resultados"]:
         q = pq[r["id"]]
         c = corrigir(q, r, fatos)
-        acertos += c["ok"]
-        textos_ok += not c["desconhecidos"]
         provedor = [ch for p in r["passos"] for ch in (p.get("provedor") or [])]
-        chamadas_q.append(len(provedor))
-        posts_q.append(len(r["passos"]))
-        tempos.append(r["segundos"])
+        if c["ok"] is not None:
+            medidas.append(c)
+            if q["rota"] != "ia":
+                simples.append(c)
+            tempos["IA" if r.get("rota", "ia") == "ia" else "sem IA"].append(r["segundos"])
+            chamadas_q.append(len(provedor))
+            posts_q.append(len(r["passos"]))
         for pl in r.get("planos", []):
+            planos += 1
             reservas += bool(pl.get("reserva"))
             rodadas_extras += (pl.get("rodadas") or 1) > 1
         for ch in provedor:
@@ -600,37 +696,49 @@ def relatorio(rodada: str) -> int:
             if uso.get("thoughtsTokenCount"):
                 m["pensou"] += uso["thoughtsTokenCount"]
                 pensou.append(ch["modelo"])
-        entrada = [ (ch.get("uso") or {}).get("promptTokenCount") for p in r["passos"] if p["rota"] == "/consulta"
-                    for ch in (p.get("provedor") or []) if (ch.get("uso") or {}).get("promptTokenCount")]
-        linhas.append(f"| {r['id']} | {q['rota']} | {r.get('rota', 'ia')} | {'✓' if c['ok'] else '✗ ' + c['motivo']} "
-                      f"| {seg(r['segundos'])} | {len(provedor)} | {len(r['passos'])} "
-                      f"| {br(entrada[0]) if entrada else '-'} | {', '.join(c['desconhecidos']) or '-'} |")
-        texto = (r.get("texto") or r.get("erro") or "").replace("\n", " ")
-        respostas.append(f"- **{r['id']}** ({r['pergunta']}) — {texto[:260]}"
-                         + (f"\n  `{r['sql'][:220]}`" if r.get("sql") else ""))
+        entrada = [(ch.get("uso") or {}).get("promptTokenCount") for p in r["passos"] if p["rota"] == "/consulta"
+                   for ch in (p.get("provedor") or []) if (ch.get("uso") or {}).get("promptTokenCount")]
+        acerto = "—" if c["ok"] is None else "✓" if c["ok"] else "✗ " + c["motivo"]
+        linhas.append(f"| {r['id']} | {q['rota']} | {r.get('rota', 'ia')} | {acerto} | {seg(r.get('segundos'))} "
+                      f"| {len(provedor)} | {len(r['passos'])} | {br(entrada[0]) if entrada else '-'} "
+                      f"| {', '.join(c['desconhecidos']) or '-'} |")
+        if c["ok"] is not None:
+            texto = (r.get("texto") or r.get("erro") or "").replace("\n", " ")
+            respostas.append(f"- **{r['id']}** ({r['pergunta']}) — {texto[:260]}"
+                             + (f"\n  `{r['sql'][:220]}`" if r.get("sql") else ""))
 
-    n = len(grav["resultados"]) or 1
+    n, ns = len(medidas) or 1, len(simples) or 1
+    acertos = sum(c["ok"] for c in medidas)
+    acertos_s = sum(c["ok"] for c in simples)
+    textos_ok = sum(not c["desconhecidos"] for c in medidas)
+    nao_medidas = len(grav["resultados"]) - len(medidas)
     rotas = grav.get("rotas_de_todas", {})
     sem_ia = sum(1 for v in rotas.values() if v != "ia")
     s = grav.get("saude") or {}
+    faixa = lambda ts: (f"p50 {seg(percentil(ts, .5))} · p95 {seg(percentil(ts, .95))} · máx {seg(max(ts))}"
+                        if ts else "-")
     md = [
         f"# Avaliação — {rodada}",
         "",
         f"Worker `{grav['worker']}` · {grav['quando']}"
         + (" · **chave falsa (teste de encanamento)**" if grav.get("chave_falsa") else ""),
-        f"Modelo `{s.get('modelo')}`, reservas `{', '.join(s.get('reservas') or [])}`, narração "
-        f"`{s.get('modelo_narracao')}` · prazo do /consulta {s.get('prazo_consulta_ms')} ms, reserva aos "
-        f"{s.get('atraso_reserva_ms')} ms",
+        *([f"Modelo `{s.get('modelo')}`, reservas `{', '.join(s.get('reservas') or [])}`, narração "
+           f"`{s.get('modelo_narracao')}` · prazo do /consulta {s.get('prazo_consulta_ms')} ms, reserva aos "
+           f"{s.get('atraso_reserva_ms')} ms"] if s else []),
         "",
         "| Medida | Valor |",
         "|---|---|",
-        f"| Acerto (o dado certo na tela) | {acertos} de {n} ({br(100 * acertos / n)}%) |",
-        f"| Texto sem número inventado | {textos_ok} de {n} |",
-        f"| Latência por pergunta | p50 {seg(percentil(tempos, .5))} · p95 {seg(percentil(tempos, .95))} · máx {seg(max(tempos) if tempos else None)} |",
+        f"| Perguntas corrigidas | {len(medidas)} de {len(grav['resultados'])}"
+        + (f" ({nao_medidas} vão à IA e não foram medidas nesta rodada)" if nao_medidas else "") + " |",
+        f"| Acerto (o dado certo na tela) | {acertos} de {len(medidas)} ({br(100 * acertos / n)}%) |",
+        f"| Acerto nas perguntas simples (rota esperada sem IA) | {acertos_s} de {len(simples)} ({br(100 * acertos_s / ns)}%) |",
+        f"| Texto sem número inventado | {textos_ok} de {len(medidas)} |",
+        f"| Latência das respondidas sem IA | {faixa(tempos['sem IA'])} |",
+        f"| Latência das que foram à IA | {faixa(tempos['IA'])} |",
         f"| Chamadas ao provedor por pergunta | média {br(sum(chamadas_q) / n, 1)} · máx {max(chamadas_q) if chamadas_q else 0} |",
         f"| Requisições que o KV conta, por pergunta | média {br(sum(posts_q) / n, 1)} |",
         f"| Respondidas sem IA, das {len(rotas)} perguntas | {sem_ia} ({br(100 * sem_ia / max(1, len(rotas)))}%) |",
-        f"| Reserva atrasada disparou | {reservas} de {sum(len(r.get('planos', [])) for r in grav['resultados'])} planos |",
+        f"| Reserva atrasada disparou | {reservas} de {planos} planos |",
         f"| Planos que precisaram de mais de uma rodada | {rodadas_extras} |",
         f"| Chamadas com raciocínio (thoughtsTokenCount > 0) | {len(pensou)} de {sum(chamadas_q)} |",
         "",
@@ -656,7 +764,7 @@ def relatorio(rodada: str) -> int:
     RELATORIOS.mkdir(exist_ok=True)
     destino = RELATORIOS / f"{rodada}.md"
     destino.write_text("\n".join(md), encoding="utf-8")
-    print("\n".join(md[:18]))
+    print("\n".join(md[:20]))
     print(f"\nrelatório: {destino.relative_to(RAIZ)}")
     return 0
 
@@ -675,10 +783,13 @@ def main() -> int:
     a.add_argument("--worker", required=True, help='commit (ex.: cbbeb33) ou "atual"')
     a.add_argument("--chave-falsa", action="store_true", help="testa o encanamento sem gastar cota")
     a.add_argument("--ids", help="só estas perguntas, separadas por vírgula")
+    o = sub.add_parser("offline")
+    o.add_argument("rodada")
+    o.add_argument("--ia", help="gravação ao vivo de onde vêm as respostas das perguntas que vão à IA")
     r = sub.add_parser("relatorio")
     r.add_argument("rodada")
     args = p.parse_args()
-    return {"gabarito": cmd_gabarito, "seco": cmd_seco, "ao-vivo": cmd_ao_vivo,
+    return {"gabarito": cmd_gabarito, "seco": cmd_seco, "offline": cmd_offline, "ao-vivo": cmd_ao_vivo,
             "relatorio": cmd_relatorio}[args.cmd](args)
 
 

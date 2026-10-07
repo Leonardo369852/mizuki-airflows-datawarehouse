@@ -695,20 +695,23 @@ const DUCKDB_DIST = `https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@${DUCKDB_V
    visitante o que dá para perguntar. */
 let SUGESTOES = [];
 let CONHECIMENTO = null;
+let ROTEADOR = null;     /* roteador.js: o que dá para responder sem IA */
+let DIMENSOES = null;    /* entidades das dimensões, lidas do banco quando ele carrega */
 
 async function carregarConhecimento() {
   const ler = n => fetch(`conhecimento/${n}.json`).then(r => {
     if (!r.ok) throw new Error(`conhecimento/${n}.json: HTTP ${r.status}`);
     return r.json();
   });
-  const [montar, semantica, identidade, exemplos, apelidos, fatos] = await Promise.all([
-    import("./conhecimento/montar.js"), ler("semantica"), ler("identidade"), ler("exemplos"),
-    ler("apelidos"), ler("fatos")
+  const [montar, roteador, semantica, identidade, exemplos, apelidos, fatos] = await Promise.all([
+    import("./conhecimento/montar.js"), import("./roteador.js"), ler("semantica"), ler("identidade"),
+    ler("exemplos"), ler("apelidos"), ler("fatos")
   ]);
   CONHECIMENTO = { montar, semantica, identidade, apelidos,
                    exemplos: exemplos.exemplos, fatos: fatos.fatos };
   SUGESTOES = CONHECIMENTO.exemplos.filter(e => e.chip)
     .map(e => ({ p: e.pergunta, ...montar.planoDoExemplo(e, CONHECIMENTO.fatos) }));
+  ROTEADOR = roteador.criarRoteador(CONHECIMENTO, DIMENSOES);
   return CONHECIMENTO;
 }
 
@@ -1305,7 +1308,27 @@ async function ask(pergunta, planoPronto) {
 
   ctl = new AbortController();
   try {
+    /* O roteador responde sem IA o que dá, do mais barato para o mais caro (ver roteador.js).
+       A resposta fixa — saudação, ajuda, "quem é você", fora do grão — nem espera o banco.
+       Antes, "oi" ia ao Gemini, e com a IA gratuita congestionada levava até um minuto. */
+    let rota = !planoPronto && ROTEADOR ? ROTEADOR.rotear(pergunta, { historico }) : null;
+    if (rota?.rota === "fixa") {
+      fala(texto, rota.texto);
+      registrar({ pergunta, resposta: rota.texto });
+      aoFundo();
+      return;
+    }
     await garantirBanco();
+    if (rota?.motivo === "banco ainda não carregou") rota = ROTEADOR.rotear(pergunta, { historico });
+    /* Pergunta pronta dita de outro jeito, ou template sobre as dimensões: o plano já vem
+       montado, e segue o mesmo caminho das perguntas prontas — SQL aqui, texto da tabela. */
+    if (rota?.rota === "pronta" || rota?.rota === "template") planoPronto = rota.plano;
+    const semIA = !!planoPronto;
+    if (!planoPronto && !temLLM) {
+      fala(texto, "Essa pergunta precisa da IA, que não está configurada aqui. As perguntas "
+        + "prontas, e as de contagem simples por estado, aeroporto, empresa ou mês, respondem sem ela.");
+      return;
+    }
     if (!planoPronto) pensando(texto, "Pensando");
     /* O Worker insiste por até um minuto quando a IA gratuita congestiona. Sem este
        aviso, o visitante via "Pensando" parado e achava que tinha travado. */
@@ -1380,7 +1403,8 @@ async function ask(pergunta, planoPronto) {
     const meta = document.createElement("p");
     meta.className = "res-meta";
     meta.textContent = `${nf(linhas.length)} ${linhas.length === 1 ? "linha" : "linhas"} · ${ms} ms · DuckDB no seu navegador`
-      + (sqlVazio && linhas.length ? " · revisada depois de uma consulta vazia" : "");
+      + (sqlVazio && linhas.length ? " · revisada depois de uma consulta vazia" : "")
+      + (semIA ? " · sem IA" : "");
     corpo.appendChild(meta);
 
     if (plano.aviso) corpo.appendChild(blocoAviso(plano.aviso));
@@ -1458,7 +1482,6 @@ async function ask(pergunta, planoPronto) {
 sendBtn.addEventListener("click", () => {
   const v = qEl.value.trim();
   if (!v) return;
-  if (!temLLM) { footEl.textContent = "O texto livre precisa de um modelo configurado. Use as perguntas prontas acima."; return; }
   qEl.value = "";
   ask(v);
 });
@@ -1471,6 +1494,23 @@ stopBtn.addEventListener("click", () => ctl && ctl.abort());
    Arranque
    -------------------------------------------------------------------------- */
 
+/* O dicionário do roteador sai das próprias dimensões, lidas uma vez: algumas centenas de
+   linhas. Sem elas o roteador ainda responde as fixas, e o resto vai para a IA. */
+async function carregarDimensoes() {
+  try {
+    const ler = async sql => (await rodar(sql)).linhas;
+    DIMENSOES = {
+      aerodromos: await ler("SELECT icao, nome, municipio, uf, estado, rotulo FROM dim_aerodromo"),
+      empresas: await ler("SELECT icao_empresa, nome, iata, marca FROM dim_empresa"),
+      meses: await ler("SELECT ano_mes, nome_mes, dias_com_voo FROM dim_tempo "
+                       + "WHERE ano_mes IS NOT NULL ORDER BY ordem"),
+    };
+    ROTEADOR?.comDimensoes(DIMENSOES);
+  } catch (e) {
+    console.warn("dimensões do roteador:", e);
+  }
+}
+
 /* Uma tentativa só, compartilhada: cliques simultâneos aguardam a mesma promessa. */
 let abrindo = null;
 function garantirBanco() {
@@ -1478,7 +1518,7 @@ function garantirBanco() {
     estado("carregando o banco…");
     loadbar.hidden = false;
     abrindo = abrirBanco().then(
-      c => { con = c; loadbar.hidden = true; estado(""); return c; },
+      async c => { con = c; await carregarDimensoes(); loadbar.hidden = true; estado(""); return c; },
       e => {
         abrindo = null;                 /* permite nova tentativa */
         loadbar.hidden = true;
