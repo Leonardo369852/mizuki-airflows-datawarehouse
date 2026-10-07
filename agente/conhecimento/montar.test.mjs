@@ -16,13 +16,25 @@ test("chave de fato desconhecida estoura, em vez de sumir do texto", () => {
   assert.throws(() => m.preencher("{nao_existe}", fatos), /fato desconhecido/);
 });
 
-test("nenhuma {chave} sobra em texto montado", () => {
+test("nenhuma {chave} de fato sobra em texto montado", () => {
   const respostas = Object.entries(identidade.respostas).flatMap(([k, v]) =>
     typeof v === "string" ? [m.respostaFixa(identidade, fatos, k)]
                           : Object.keys(v).map((sub) => m.respostaFixa(identidade, fatos, k, sub)));
-  const tudo = [m.promptConsulta(conh), m.promptNarracao(conh), m.resumoEmTexto(identidade, fatos),
-                m.exemplosEmTexto(exemplos, fatos), ...respostas].join("\n");
+  /* A regra da frase e as frases dos exemplos ficam de fora de propósito: as chaves delas são
+     marcadores que a página preenche com o resultado, não fatos. */
+  const planos = exemplos.map((ex) => m.planoDoExemplo(ex, fatos));
+  const tudo = [m.semanticaEmTexto(semantica, fatos), m.resumoEmTexto(identidade, fatos),
+                m.limitesEmTexto(identidade, fatos), m.roteamentoEmTexto(identidade), m.regrasSqlEmTexto(semantica),
+                ...planos.flatMap((p) => [p.titulo ?? "", p.aviso ?? "", p.resposta ?? ""]), ...respostas].join("\n");
   assert.doesNotMatch(tudo, /\{[a-z_]+\}/);
+});
+
+test("o prompt do /consulta ensina a frase com marcadores, e os exemplos trazem a deles", () => {
+  const prompt = m.promptConsulta(conh);
+  assert.match(prompt, /FRASE/);
+  assert.match(prompt, /\{total\.col\}/);
+  const texto = m.exemplosEmTexto(exemplos.slice(0, 3), fatos);
+  assert.match(texto, /"frase":"[^"]*\{maior\.rotulo\}/);
 });
 
 test("o prompt do /consulta cabe no orçamento", () => {

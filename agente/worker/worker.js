@@ -18,8 +18,11 @@
  * Não existe banco para atacar. A validação em `sqlSuspeito()` é cinto sobre suspensório.
  *
  * Rotas
- *   POST /consulta  {pergunta, historico}   -> {sql, grafico, x, y, titulo, unidade, aviso}
- *   POST /narrar    {pergunta, sql, linhas} -> text/event-stream (a resposta em português)
+ *   POST /consulta  {pergunta, historico}   -> {sql, grafico, x, y, titulo, unidade, aviso, frase}
+ *
+ * Não há /narrar: a resposta em texto vem na `frase` do plano, com marcadores no lugar dos
+ * números, e a página a preenche com o resultado (agente/narrador.js). Era uma segunda
+ * chamada à IA por pergunta, e foi ela que somou 16 linhas como 322.327 em vez de 317.327.
  *   GET  /saude                             -> configuração, contadores do dia e disjuntor
  */
 
@@ -27,7 +30,7 @@ import semantica from "../conhecimento/semantica.json" with { type: "json" };
 import identidade from "../conhecimento/identidade.json" with { type: "json" };
 import exemplosJson from "../conhecimento/exemplos.json" with { type: "json" };
 import fatosJson from "../conhecimento/fatos.json" with { type: "json" };
-import { promptConsulta, promptNarracao, exemplosEmTexto } from "../conhecimento/montar.js";
+import { promptConsulta, exemplosEmTexto } from "../conhecimento/montar.js";
 import { normalizar, exemplosParecidos } from "../roteador.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -41,7 +44,6 @@ const ORIGENS_PERMITIDAS = [
 ];
 
 const MAX_CARACTERES_PERGUNTA = 300;
-const MAX_LINHAS_PARA_NARRAR = 40;
 const REQUISICOES_POR_MINUTO_POR_IP = 6;
 const LIMITE_DIARIO_PADRAO = 400; // requisições à IA por dia, somando as duas rotas
 const MAX_TURNOS_HISTORICO = 5;   // conversa enviada ao modelo; mais que isso é token gasto
@@ -70,10 +72,6 @@ const EXEMPLOS = exemplosJson.exemplos;
    tokens em toda pergunta; quatro escolhidos, ~600. */
 const EXEMPLOS_NO_PROMPT_PADRAO = 4;
 
-/* A narração recebe só o que usa: como as métricas se chamam, quais ressalvas existem
-   e o formato. Mandar o schema inteiro (colunas, fórmulas, regras de SQL) era dobrar a
-   entrada de graça — e entrada é latência. */
-const PROMPT_NARRACAO = promptNarracao(CONHECIMENTO);
 
 // Enum fechado: o que estiver fora disso a página renderiza como tabela.
 const GRAFICOS = [
@@ -243,7 +241,6 @@ function cors(origem) {
     "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
     "Access-Control-Allow-Headers": "content-type",
     "Access-Control-Max-Age": "86400",
-    "Access-Control-Expose-Headers": "x-modelo",
     Vary: "Origin",
   };
 }
@@ -401,7 +398,7 @@ const espera = ms => new Promise(r => setTimeout(r, ms));
 const PRAZO_POR_TENTATIVA_PADRAO = 15000;
 const PRAZO_TOTAL_PADRAO = 40000;
 /* Depois que o modelo começa a responder em streaming, este prazo só protege contra
-   stream parado: 400 tokens de narração saem em poucos segundos. */
+   stream parado. */
 const PRAZO_CORPO_MS = 30000;
 /* Quanto o principal pode demorar antes de a reserva entrar junto, no /consulta. Acima
    dos 3 a 5 s de um principal saudável, para ela quase nunca disparar à toa. */
@@ -409,14 +406,12 @@ const ATRASO_RESERVA_PADRAO = 6000;
 /* FALHA RÁPIDA. O /consulta chegou a insistir por um minuto, em quatro rodadas, para o
    visitante não ter de clicar em "tentar de novo" — e a espera de um minuto virou o problema.
    Agora são 20 s e duas rodadas; na falha a página oferece na hora as perguntas prontas mais
-   parecidas, que não dependem da IA. A narração tem prazo curto porque a página tem saída sem
-   ela: o gráfico já está na tela, e o texto sai da própria tabela. Tudo vem do wrangler.toml. */
+   parecidas, que não dependem da IA. Tudo vem do wrangler.toml. */
 const PRAZO_CONSULTA_PADRAO = 20000;
-const PRAZO_NARRACAO_PADRAO = 8000;
 const RODADAS_PADRAO = 2;              /* espera de 1,5 s entre elas */
 const ESPERA_RODADA_PADRAO = 1500;
 
-async function chamar(env, { sistema, usuario, esquema, maxTokens, stream, modeloForcado, preferido,
+async function chamar(env, { sistema, usuario, esquema, maxTokens, stream, modeloForcado,
                               atrasoReserva, insistir, prazoTotal, registro = [] }) {
   const { p, chave } = resolverProvedor(env);
   const prazoTentativa = Number(env.PRAZO_TENTATIVA_MS ?? PRAZO_POR_TENTATIVA_PADRAO);
@@ -424,11 +419,9 @@ async function chamar(env, { sistema, usuario, esquema, maxTokens, stream, model
   /* Menos que isto até o limite, uma tentativa nova não chega a responder: não vale lançar. */
   const minimoUtil = Math.min(4000, prazoTentativa / 3);
 
-  /* `preferido` deixa cada rota escolher quem vai primeiro: a narração resume uma tabela
-     pequena e roda bem no modelo mais leve, que é também o mais rápido. */
   const fila = modeloForcado
     ? [modeloForcado]
-    : [preferido, p.modelo, ...String(env.MODELOS_RESERVA ?? "").split(",").map(s => s.trim())]
+    : [p.modelo, ...String(env.MODELOS_RESERVA ?? "").split(",").map(s => s.trim())]
         .filter(Boolean)
         .filter((m, i, a) => a.indexOf(m) === i);   /* sem repetidos */
 
@@ -453,7 +446,7 @@ async function chamar(env, { sistema, usuario, esquema, maxTokens, stream, model
       registro.push({ modelo, desfecho, ms: Date.now() - inicio });
     };
     /* O prazo vale até a resposta COMEÇAR. Com AbortSignal.timeout ele valia também
-       para o corpo, e numa narração em streaming um prazo curto cortaria o texto no
+       para o corpo, e numa resposta em streaming um prazo curto cortaria o texto no
        meio. Chegados os cabeçalhos, um prazo folgado só protege contra stream parado. */
     /* Nunca além do limite total: é o que garante os ~20 s do /consulta. */
     const relogio = setTimeout(() => { ctl.anotar("tempo"); ctl.abort(); },
@@ -613,6 +606,10 @@ const ESQUEMA_CONSULTA = {
     unidade: { type: "string", enum: ["%", "min", "voos", "km", "nenhuma"] },
     titulo: { type: "string", description: "título do gráfico, com o corte aplicado" },
     aviso: { type: "string", description: "ressalva de qualidade sobre este número, ou vazio" },
+    /* A resposta em texto, com marcadores no lugar dos números ({total.voos}, {maior.rotulo}):
+       a página preenche com o resultado da consulta. É o que aposentou o /narrar — uma
+       chamada a menos por pergunta, e nenhum número escrito de cabeça. */
+    frase: { type: "string", description: "a resposta em até duas frases, com marcadores no lugar de todo número" },
   },
   /* Só "tipo" é obrigatório: uma conversa não tem SQL nem eixos. O código valida
      o resto conforme o tipo. */
@@ -718,105 +715,11 @@ async function rotaConsulta(req, env, ctx, origem, modeloForcado) {
     /* O enum do schema não aceita string vazia, então "sem unidade" viaja como "nenhuma"
        e volta a ser "" aqui — senão o rótulo do gráfico sairia "12 nenhuma". */
     if (plano.unidade === "nenhuma") plano.unidade = "";
+    plano.frase = String(plano.frase ?? "").trim().slice(0, 400);
     saida = plano;
   }
   if (chave) depois(ctx, kv.put(chave, JSON.stringify(saida), { expirationTtl: CACHE_PLANO_TTL }));
   return json({ ...saida, modelo: p.modelo, reserva, rodadas }, 200, origem);
-}
-
-async function rotaNarrar(req, env, ctx, origem, modeloForcado) {
-  const { pergunta, sql, linhas, aviso, historico } = await req.json();
-
-  if (!Array.isArray(linhas)) return json({ erro: "linhas ausentes" }, 400, origem);
-  const bloqueio = bloqueioDoDia(await lerDia(env), env);
-  if (bloqueio) return json({ erro: bloqueio.erro, pausa_ate: bloqueio.pausa_ate ?? null }, bloqueio.status, origem);
-
-  const amostra = linhas.slice(0, MAX_LINHAS_PARA_NARRAR);
-  const usuario = [
-    `Pergunta: ${String(pergunta).slice(0, MAX_CARACTERES_PERGUNTA)}`,
-    ``,
-    `SQL executado:`,
-    String(sql).slice(0, 2000),
-    ``,
-    `Linhas que voltaram (${linhas.length}${linhas.length > amostra.length ? `, mostrando ${amostra.length}` : ""}):`,
-    JSON.stringify(amostra),
-    aviso ? `\nRessalva de qualidade a incorporar: ${aviso}` : "",
-  ].join("\n");
-
-  const registro = [];
-  const t0 = Date.now();
-  let chamada;
-  try {
-    chamada = await chamar(env, {
-      sistema: PROMPT_NARRACAO + historicoEmTexto(historico),
-      usuario,
-      maxTokens: 400,
-      stream: true,
-      modeloForcado,
-      preferido: env.MODELO_NARRACAO,
-      prazoTotal: Number(env.PRAZO_NARRACAO_MS ?? PRAZO_NARRACAO_PADRAO),
-      registro,
-    });
-  } catch (e) {
-    console.log(JSON.stringify({ rota: "narrar", ms: Date.now() - t0, falhou: e.status ?? 500, registro }));
-    depois(ctx, anotarDia(env, (d) => contabilizar(d, env, { registro, falhou: [429, 503].includes(e.status) })));
-    throw e;
-  }
-  const { resposta, p } = chamada;
-
-  // Reempacota o SSE do provedor num formato único, para a página não saber qual IA respondeu.
-  const { readable, writable } = new TransformStream();
-  const repassar = (async () => {
-    const escritor = writable.getWriter();
-    const codificar = new TextEncoder();
-    const leitor = resposta.body.getReader();
-    const decodificar = new TextDecoder();
-    let sobra = "";
-    let uso = null;   /* no streaming, o usageMetadata acumulado vem em cada pedaço; vale o último */
-
-    try {
-      for (;;) {
-        const { done, value } = await leitor.read();
-        if (done) break;
-        sobra += decodificar.decode(value, { stream: true });
-        const linhasSse = sobra.split("\n");
-        sobra = linhasSse.pop() ?? "";
-
-        for (const linha of linhasSse) {
-          if (!linha.startsWith("data:")) continue;
-          const bruto = linha.slice(5).trim();
-          if (!bruto || bruto === "[DONE]") continue;
-          try {
-            const evento = JSON.parse(bruto);
-            if (evento.usageMetadata) uso = evento.usageMetadata;
-            const pedaco = p.delta(evento);
-            if (pedaco) {
-              await escritor.write(codificar.encode(`data: ${JSON.stringify({ t: pedaco })}\n\n`));
-            }
-          } catch {
-            /* chunk parcial: o próximo ciclo completa */
-          }
-        }
-      }
-      await escritor.write(codificar.encode(`data: ${JSON.stringify({ fim: true })}\n\n`));
-    } catch (e) {
-      await escritor.write(codificar.encode(`data: ${JSON.stringify({ erro: String(e) })}\n\n`)).catch(() => {});
-    } finally {
-      await escritor.close().catch(() => {});
-      console.log(JSON.stringify({ rota: "narrar", modelo: p.modelo, ms: Date.now() - t0, uso, registro }));
-      await anotarDia(env, (d) => contabilizar(d, env, { registro, uso, modelo: p.modelo, falhou: false }));
-    }
-  })();
-  depois(ctx, repassar);
-
-  return new Response(readable, {
-    headers: {
-      "content-type": "text/event-stream; charset=utf-8",
-      "x-modelo": p.modelo,
-      "cache-control": "no-cache",
-      ...cors(origem),
-    },
-  });
 }
 
 /**
@@ -845,11 +748,9 @@ async function rotaSaude(env, url, origem) {
     prazo_tentativa_ms: Number(env.PRAZO_TENTATIVA_MS ?? PRAZO_POR_TENTATIVA_PADRAO),
     prazo_total_ms: Number(env.PRAZO_TOTAL_MS ?? PRAZO_TOTAL_PADRAO),
     reservas: String(env.MODELOS_RESERVA ?? "").split(",").map(x => x.trim()).filter(Boolean),
-    modelo_narracao: env.MODELO_NARRACAO ?? cfg.p.modelo,
     atraso_reserva_ms: Number(env.ATRASO_RESERVA_MS ?? ATRASO_RESERVA_PADRAO),
     prazo_consulta_ms: Number(env.PRAZO_CONSULTA_MS ?? PRAZO_CONSULTA_PADRAO),
     rodadas_consulta: Number(env.RODADAS_CONSULTA ?? RODADAS_PADRAO),
-    prazo_narracao_ms: Number(env.PRAZO_NARRACAO_MS ?? PRAZO_NARRACAO_PADRAO),
     exemplos_no_prompt: Number(env.EXEMPLOS_NO_PROMPT ?? EXEMPLOS_NO_PROMPT_PADRAO),
     disjuntor: {
       falhas_para_pausar: Number(env.DISJUNTOR_FALHAS ?? DISJUNTOR_FALHAS_PADRAO),
@@ -951,7 +852,6 @@ export default {
       /* ?modelo= é diagnóstico: mede um modelo específico sem um ciclo de deploy. */
       const forcado = url.searchParams.get("modelo") || undefined;
       if (url.pathname === "/consulta") return await rotaConsulta(req, env, ctx, origem, forcado);
-      if (url.pathname === "/narrar") return await rotaNarrar(req, env, ctx, origem, forcado);
       return json({ erro: "rota inexistente" }, 404, origem);
     } catch (e) {
       const status = [429, 503].includes(e.status) ? e.status : 500;

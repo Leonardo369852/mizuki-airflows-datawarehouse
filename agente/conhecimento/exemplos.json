@@ -1,5 +1,5 @@
 {
-  "sobre": "Pares pergunta → plano, no formato que o /consulta devolve. Os marcados chip aparecem como perguntas prontas na página e respondem sem IA; os demais ensinam o modelo os padrões em que ele já errou (uf é sigla, marca em vez de razão social, nome popular de aeroporto, distância com NULL, mês parcial, pergunta fora do grão). Todo SQL é executado por conferir.py. São diferentes, de propósito, das perguntas de agente/avaliacao/: a avaliação mede generalização, não decoreba. Número entre chaves vem de fatos.json.",
+  "sobre": "Pares pergunta → plano, no formato que o /consulta devolve, com a frase de resposta escrita com marcadores no lugar dos números. Os marcados chip aparecem como perguntas prontas na página e respondem sem IA; os demais ensinam o modelo os padrões em que ele já errou (uf é sigla, marca em vez de razão social, nome popular de aeroporto, distância com NULL, mês parcial, pergunta fora do grão). Todo SQL é executado por conferir.py. São diferentes, de propósito, das perguntas de agente/avaliacao/: a avaliação mede generalização, não decoreba. Número entre chaves vem de fatos.json.",
   "exemplos": [
     {
       "pergunta": "Qual empresa tem a maior taxa de cancelamento?",
@@ -7,6 +7,7 @@
       "plano": {
         "tipo": "consulta", "grafico": "barra_horizontal", "x": "taxa", "y": "empresa", "unidade": "%",
         "titulo": "Taxa de cancelamento — empresas com 500+ voos programados", "aviso": "",
+        "frase": "A maior taxa de cancelamento é a da {maior.rotulo}: {maior.taxa} dos voos programados, entre as {n} empresas do gráfico.",
         "sql": [
           "SELECT e.nome AS empresa,",
           "       100.0 * SUM(f.cancelados) / SUM(f.voos) AS taxa,",
@@ -26,6 +27,7 @@
         "tipo": "consulta", "grafico": "linha", "x": "mes", "y": "otp", "unidade": "%",
         "titulo": "OTP de partida por mês",
         "aviso": "Só meses completos, e sem os {sem_data_voos} voos sem data de partida prevista — sem horário previsto não há atraso a calcular.",
+        "frase": "A pontualidade de partida ficou entre {menor.otp}, em {menor.rotulo}, e {maior.otp}, em {maior.rotulo}.",
         "sql": [
           "SELECT t.nome_mes AS mes,",
           "       100.0 * SUM(f.partidas_pontuais) / NULLIF(SUM(f.realizados), 0) AS otp,",
@@ -44,6 +46,7 @@
       "plano": {
         "tipo": "consulta", "grafico": "halteres", "x": "saindo", "y": "chegando", "unidade": "%",
         "titulo": "OTP saindo de GRU/CGH contra chegando — mesmas rotas", "aviso": "",
+        "frase": "Na rota com a maior diferença, {primeiro.rota}, a pontualidade é de {primeiro.saindo} saindo de GRU/CGH contra {primeiro.chegando} chegando.",
         "sql": [
           "WITH sp AS (SELECT 'SBGR' AS icao UNION ALL SELECT 'SBSP'),",
           "saindo AS (",
@@ -73,6 +76,7 @@
       "plano": {
         "tipo": "consulta", "grafico": "mapa", "x": "longitude", "y": "latitude", "unidade": "voos",
         "titulo": "Partidas por aeródromo", "aviso": "",
+        "frase": "O aeródromo com mais partidas é {maior.rotulo}, com {maior.voos}; o mapa mostra os {n} mais movimentados.",
         "sql": [
           "SELECT a.icao, a.rotulo AS local, a.latitude, a.longitude,",
           "       SUM(f.voos) AS voos,",
@@ -93,6 +97,7 @@
         "tipo": "consulta", "grafico": "barra_vertical", "x": "grupo", "y": "atraso", "unidade": "min",
         "titulo": "Atraso médio de partida, faixa plausível",
         "aviso": "Restrito a atrasos entre {faixa_min} e {faixa_max} min: a fonte tem timestamps invertidos que produzem médias impossíveis.",
+        "frase": "O atraso médio de partida é de {maior.atraso} entre as {maior.rotulo} e de {menor.atraso} entre as {menor.rotulo}.",
         "sql": [
           "SELECT CASE WHEN e.nacional THEN 'Nacionais' ELSE 'Estrangeiras' END AS grupo,",
           "       SUM(f.soma_atraso_plausivel) / NULLIF(SUM(f.com_atraso_plausivel), 0) AS atraso,",
@@ -111,6 +116,7 @@
       "plano": {
         "tipo": "consulta", "grafico": "barra_vertical", "x": "periodo", "y": "otp", "unidade": "%",
         "titulo": "OTP de partida por período do dia", "aviso": "",
+        "frase": "O período mais pontual é {maior.rotulo}, com {maior.otp} dos voos no horário; o menos pontual é {menor.rotulo}, com {menor.otp}.",
         "sql": [
           "SELECT f.periodo_partida AS periodo,",
           "       100.0 * SUM(f.partidas_pontuais) / NULLIF(SUM(f.realizados), 0) AS otp,",
@@ -128,6 +134,7 @@
       "plano": {
         "tipo": "consulta", "grafico": "barra_horizontal", "x": "partidas", "y": "aeroporto", "unidade": "voos",
         "titulo": "Partidas por aeroporto — Paraná", "aviso": "",
+        "frase": "Os {n} aeroportos do Paraná somam {total.partidas} partidas; o maior é {maior.rotulo}, com {maior.partidas}.",
         "sql": [
           "SELECT a.rotulo AS aeroporto, SUM(f.voos) AS partidas",
           "FROM fato_voos f JOIN dim_aerodromo a ON f.icao_origem = a.icao",
@@ -143,6 +150,7 @@
       "plano": {
         "tipo": "consulta", "grafico": "barra_horizontal", "x": "voos", "y": "empresa", "unidade": "voos",
         "titulo": "Voos da marca Azul, por operadora", "aviso": "A marca AZUL soma a Azul e a Azul Conecta.",
+        "frase": "A marca Azul soma {total.voos} voos; a maior operadora é a {maior.rotulo}, com {maior.voos}.",
         "sql": [
           "SELECT e.nome AS empresa, SUM(f.voos) AS voos",
           "FROM fato_voos f JOIN dim_empresa e ON f.icao_empresa = e.icao_empresa",
@@ -159,6 +167,7 @@
         "tipo": "consulta", "grafico": "tabela", "x": "realizados", "y": "otp", "unidade": "%",
         "titulo": "OTP de partida da Azul (Azul e Azul Conecta)",
         "aviso": "Sem os voos sem data de partida prevista, que não podem ser pontuais.",
+        "frase": "A pontualidade de partida da Azul é de {otp}, sobre {realizados} voos realizados.",
         "sql": [
           "SELECT 100.0 * SUM(f.partidas_pontuais) / NULLIF(SUM(f.realizados), 0) AS otp,",
           "       SUM(f.realizados) AS realizados",
@@ -173,6 +182,7 @@
       "plano": {
         "tipo": "consulta", "grafico": "linha", "x": "mes", "y": "otp", "unidade": "%",
         "titulo": "OTP de partida em Viracopos (Campinas), por mês", "aviso": "Só meses completos.",
+        "frase": "Em Viracopos, a pontualidade de partida ficou entre {menor.otp}, em {menor.rotulo}, e {maior.otp}, em {maior.rotulo}.",
         "sql": [
           "SELECT t.nome_mes AS mes,",
           "       100.0 * SUM(f.partidas_pontuais) / NULLIF(SUM(f.realizados), 0) AS otp",
@@ -191,6 +201,7 @@
       "plano": {
         "tipo": "consulta", "grafico": "barra_horizontal", "x": "voos", "y": "destino", "unidade": "voos",
         "titulo": "Destinos com mais voos saindo de Guarulhos", "aviso": "",
+        "frase": "O destino com mais voos saindo de Guarulhos é {maior.rotulo}, com {maior.voos}.",
         "sql": [
           "SELECT d.rotulo || ' (' || d.icao || ')' AS destino, SUM(f.voos) AS voos",
           "FROM fato_voos f",
@@ -209,6 +220,7 @@
         "tipo": "consulta", "grafico": "barra_horizontal", "x": "atraso", "y": "empresa", "unidade": "min",
         "titulo": "Atraso médio de partida — empresas com 500+ voos realizados",
         "aviso": "Só atrasos entre {faixa_min} e {faixa_max} min: a fonte tem horários invertidos que produzem médias impossíveis.",
+        "frase": "Entre as empresas com mais voos, a que mais atrasa na partida é a {maior.rotulo}: {maior.atraso} em média.",
         "sql": [
           "SELECT COALESCE(e.nome, e.icao_empresa) AS empresa,",
           "       SUM(f.soma_atraso_plausivel) / NULLIF(SUM(f.com_atraso_plausivel), 0) AS atraso,",
@@ -227,6 +239,7 @@
         "tipo": "consulta", "grafico": "barra_horizontal", "x": "km", "y": "rota", "unidade": "km",
         "titulo": "Rotas mais longas, entre as que têm coordenadas",
         "aviso": "Rota sem coordenada não tem distância na fonte e fica de fora.",
+        "frase": "A rota mais longa é {maior.rotulo}, com {maior.km}.",
         "sql": [
           "SELECT o.rotulo || ' → ' || d.rotulo AS rota, r.distancia_km AS km, r.voos AS voos",
           "FROM dim_rota r",
@@ -243,6 +256,7 @@
       "plano": {
         "tipo": "consulta", "grafico": "tabela", "x": "cancelados", "y": "taxa", "unidade": "voos",
         "titulo": "Cancelamentos em mar/2026", "aviso": "",
+        "frase": "Em mar/2026 foram cancelados {cancelados} voos, {taxa} dos programados.",
         "sql": [
           "SELECT SUM(f.cancelados) AS cancelados,",
           "       100.0 * SUM(f.cancelados) / NULLIF(SUM(f.voos), 0) AS taxa",
@@ -257,6 +271,7 @@
       "plano": {
         "tipo": "consulta", "grafico": "linha", "x": "mes", "y": "taxa", "unidade": "%",
         "titulo": "Taxa de cancelamento por mês", "aviso": "Só meses completos.",
+        "frase": "A taxa de cancelamento ficou entre {menor.taxa}, em {menor.rotulo}, e {maior.taxa}, em {maior.rotulo}.",
         "sql": [
           "SELECT t.nome_mes AS mes,",
           "       100.0 * SUM(f.cancelados) / NULLIF(SUM(f.voos), 0) AS taxa",
@@ -274,6 +289,7 @@
         "tipo": "consulta", "grafico": "barra_horizontal", "x": "partidas", "y": "estado", "unidade": "voos",
         "titulo": "Partidas por estado",
         "aviso": "Aeródromos sem cadastro na ANAC (estrangeiros, sobretudo) não têm estado e ficam de fora.",
+        "frase": "{maior.rotulo} lidera, com {maior.partidas} partidas; os {n} estados somam {total.partidas}.",
         "sql": [
           "SELECT a.estado AS estado, SUM(f.voos) AS partidas",
           "FROM fato_voos f JOIN dim_aerodromo a ON f.icao_origem = a.icao",

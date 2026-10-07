@@ -275,8 +275,13 @@ export function interpretar(mascarado, lista) {
 
 const aspas = (s) => String(s).replace(/'/g, "''");
 
-/** O plano de um template interpretado: SQL, gráfico, título e avisos. */
+/** O plano de um template interpretado: SQL, gráfico, título, avisos e a frase da resposta,
+    com marcadores que agente/narrador.js preenche com o resultado. */
 export function montarTemplate(t, dic, fatos) {
+  /* Município de um aeroporto só é aquele aeroporto: resposta de uma linha, não ranking de um. */
+  if (t.geo?.tipo === "municipio" && t.geo.icaos.length === 1) {
+    t = { ...t, geo: { tipo: "aeroporto", icao: t.geo.icaos[0], antes: t.geo.antes } };
+  }
   const col = t.direcao === "destino" ? "f.icao_destino" : "f.icao_origem";
   const joins = [];
   const filtros = [];
@@ -341,30 +346,64 @@ export function montarTemplate(t, dic, fatos) {
                    + (porOperadora ? "; a tabela mostra cada uma." : "."));
   }
 
+  /* A frase da resposta, com marcadores no lugar dos números: quem escreve o texto é o código,
+     e o número sai da consulta (agente/narrador.js). */
+  const quem = t.marca ? ` da ${t.marca.marca}` : "";
+  const quando = t.mes ? ` em ${t.mes.nome_mes}` : "";
+  const aero = t.geo?.tipo === "aeroporto" ? escopo[0] : null;
+  const onde1 = aero ? ` em ${aero}` : t.geo?.tipo === "uf" ? ` no estado de ${t.geo.uf}`
+              : t.geo ? ` em ${t.geo.municipio}` : "";
+
   if (t.serie) {
     avisos.push("Só meses completos.");
     const sql = ["SELECT t.nome_mes AS mes, " + M.sel.join(", "), ...de, "JOIN dim_tempo t ON f.ano_mes = t.ano_mes",
                  ...onde(["t.dias_com_voo >= 28"]), "GROUP BY t.nome_mes, t.ordem", "ORDER BY t.ordem", "LIMIT 20"];
-    return plano(sql, "linha", "mes", M.y, M.un, titulo(" por mês"), avisos, fatos);
+    const [sujeito, verbo] = {
+      voos: ["Os voos por mês", "variaram"], otp: ["A pontualidade de partida", "variou"],
+      atraso: ["O atraso médio de partida", "variou"],
+      cancelamento: t.taxa ? ["A taxa de cancelamento", "variou"] : ["Os cancelamentos por mês", "variaram"],
+    }[t.medida];
+    const frase = `${sujeito}${quem}${onde1} ${verbo} de {menor.${M.y}}, em {menor.rotulo}, `
+                + `a {maior.${M.y}}, em {maior.rotulo}.`;
+    return plano(sql, "linha", "mes", M.y, M.un, titulo(" por mês"), avisos, fatos, frase);
   }
   if (t.geo && t.geo.tipo !== "aeroporto" && M.aditiva) {
     const sql = ["SELECT a.rotulo AS aeroporto, " + M.sel.join(", "), ...de, ...onde(),
                  "GROUP BY a.icao, a.rotulo", `ORDER BY ${M.y} DESC`, "LIMIT 40"];
-    return plano(sql, "barra_horizontal", M.y, "aeroporto", M.un, titulo(" por aeroporto"), avisos, fatos);
+    const lugar = t.geo.tipo === "uf" ? `do estado de ${t.geo.uf}` : `de ${t.geo.municipio}`;
+    const varios = t.geo.tipo === "uf" && !t.marca
+      && [...dic.aero.values()].filter((a) => a.uf === t.geo.uf).length > 1;
+    const coisa = t.medida === "voos" ? (t.direcao === "destino" ? "chegadas" : "partidas") : "cancelamentos";
+    const frase = `${varios ? "Os {n} aeroportos" : "Os aeroportos"} ${lugar} somam {total.${M.y}} ${coisa}${quem}${quando}; `
+                + `o maior é {maior.rotulo}, com {maior.${M.y}}.`;
+    return plano(sql, "barra_horizontal", M.y, "aeroporto", M.un, titulo(" por aeroporto"), avisos, fatos, frase);
   }
   if (porOperadora) {
     const sql = ["SELECT e.nome AS empresa, " + M.sel.join(", "), ...de, ...onde(), "GROUP BY e.nome",
                  `ORDER BY ${M.y} DESC`, "LIMIT 10"];
-    return plano(sql, "barra_horizontal", M.y, "empresa", M.un, titulo(", por operadora"), avisos, fatos);
+    const frase = t.medida === "voos"
+      ? `A marca ${t.marca.marca} soma {total.voos} voos${quando}; a maior operadora é a {maior.rotulo}, com {maior.voos}.`
+      : `A marca ${t.marca.marca} soma {total.cancelados} cancelamentos${quando}; a operadora que mais cancelou `
+        + "foi a {maior.rotulo}, com {maior.cancelados}.";
+    return plano(sql, "barra_horizontal", M.y, "empresa", M.un, titulo(", por operadora"), avisos, fatos, frase);
   }
   const sql = ["SELECT " + M.sel.join(", "), ...de, ...onde(), "LIMIT 1"];
   const x = M.sel.length > 1 ? M.sel[1].split(" AS ").pop() : M.y;
-  return plano(sql, "tabela", x, M.y, M.un, titulo(""), avisos, fatos);
+  const frase = {
+    voos: aero ? (t.direcao === "destino" ? `Chegaram {voos} voos em ${aero}${quem}${quando}.`
+                                          : `Saíram {voos} voos de ${aero}${quem}${quando}.`)
+               : `Foram {voos} voos${quem}${onde1}${quando}.`,
+    otp: `A pontualidade de partida${quem}${onde1}${quando} é de {otp}, sobre {realizados} voos realizados.`,
+    atraso: `O atraso médio de partida${quem}${onde1}${quando} é de {atraso}, sobre {realizados} voos realizados.`,
+    cancelamento: t.taxa ? `A taxa de cancelamento${quem}${onde1}${quando} é de {taxa}, com {cancelados} voos cancelados.`
+                         : `Foram {cancelados} voos cancelados${quem}${onde1}${quando}, {taxa} dos programados.`,
+  }[t.medida];
+  return plano(sql, "tabela", x, M.y, M.un, titulo(""), avisos, fatos, frase);
 }
 
-function plano(sql, grafico, x, y, unidade, titulo, avisos, fatos) {
+function plano(sql, grafico, x, y, unidade, titulo, avisos, fatos, frase = "") {
   return { tipo: "consulta", sql: sql.join("\n"), grafico, x, y, unidade, titulo,
-           aviso: preencher(avisos.join(" "), fatos), serie: "", resposta: "" };
+           aviso: preencher(avisos.join(" "), fatos), frase, serie: "", resposta: "" };
 }
 
 // ─── O roteador ───────────────────────────────────────────────────────────────

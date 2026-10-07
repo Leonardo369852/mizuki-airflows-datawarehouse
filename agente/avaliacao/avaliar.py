@@ -22,6 +22,7 @@ relatorio  corrige uma gravação e escreve relatorios/RODADA.md, sem rede.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import datetime as dt
 import decimal
 import io
@@ -202,7 +203,9 @@ def corrigir(q: dict, r: dict, fatos: list[float]) -> dict:
     if r.get("medida") is False:
         return {"ok": None, "motivo": "não medida (vai à IA)", "desconhecidos": []}
     esp = q["esperado"]
-    conhecidos = (numeros_do_resultado(r.get("linhas") or []) + fatos
+    linhas = r.get("linhas") or []
+    # A contagem de linhas também sai da consulta ("o mapa mostra os 58 mais movimentados").
+    conhecidos = (numeros_do_resultado(linhas) + ([float(len(linhas))] if linhas else []) + fatos
                   + numeros_em(q["pergunta"]) + SEMPRE_CONHECIDOS)
     fora = desconhecidos(r.get("texto") or "", conhecidos)
     if r.get("erro"):
@@ -345,7 +348,21 @@ def dimensoes(con) -> dict:
     }
 
 
-def responder_sem_ia(con, q: dict, r: dict) -> dict:
+VAZIA = "A consulta não encontrou nenhuma linha. O SQL está abaixo para conferir."
+
+
+def narrar_como_a_pagina(ponte, res: dict, plano: dict, linhas: list[dict], pergunta: str):
+    """O texto que a página mostra para um resultado: o narrador dela, rodando pela ponte."""
+    if not linhas:
+        res["texto"] = VAZIA
+        return
+    n = ponte.pedir({"op": "narrar", "plano": plano, "linhas": linhas, "pergunta": pergunta})
+    res["texto"], res["origem_texto"] = n["texto"], n.get("origem")
+    if n.get("descartada"):
+        res["frase_descartada"], res["frase_desconhecidos"] = n["descartada"], n.get("desconhecidos")
+
+
+def responder_sem_ia(con, q: dict, r: dict, ponte) -> dict:
     """O que a página faz com uma rota que não é IA: texto fixo, ou o plano pronto no DuckDB."""
     res = {"id": q["id"], "pergunta": q["pergunta"], "rota": r["rota"], "passos": [], "planos": [],
            "tipo": None, "texto": "", "sql": None, "linhas": [], "erro": None}
@@ -356,7 +373,9 @@ def responder_sem_ia(con, q: dict, r: dict) -> dict:
         plano = r["plano"]
         res["tipo"], res["sql"], res["plano"] = "consulta", plano["sql"], plano
         try:
-            res["linhas"] = executar(con, plano["sql"])[:100]
+            linhas = executar(con, plano["sql"])
+            res["linhas"] = linhas[:100]
+            narrar_como_a_pagina(ponte, res, plano, linhas, q["pergunta"])
         except Falha as e:
             res["erro"] = str(e)
     res["segundos"] = round(r.get("ms", 0) / 1000 + time.perf_counter() - t0, 4)
@@ -376,7 +395,7 @@ def cmd_offline(args) -> int:
             r = ponte.pedir({"op": "rotear", "pergunta": q["pergunta"], "historico": q.get("historico", [])})
             rotas[q["id"]] = r["rota"]
             if r["rota"] != "ia":
-                resultados.append(responder_sem_ia(con, q, r))
+                resultados.append(responder_sem_ia(con, q, r, ponte))
             elif q["id"] in ao_vivo:
                 resultados.append({**ao_vivo[q["id"]], "rota": "ia"})
             else:
@@ -605,23 +624,87 @@ def perguntar_como_a_pagina(cli: Cliente, con, q: dict) -> dict:
     return r
 
 
+def perguntar_atual(cli: Cliente, con, ponte: Ponte, q: dict) -> dict:
+    """O ask() da página de agora: o roteador primeiro; para a IA, um /consulta só (o Worker já
+    insiste), a revisão de consulta vazia só se a primeira veio rápido, e o texto do narrador
+    da página — sem /narrar."""
+    hist = q.get("historico", [])
+    t0 = time.time()
+    rota = ponte.pedir({"op": "rotear", "pergunta": q["pergunta"], "historico": hist})
+    if rota["rota"] != "ia":
+        return responder_sem_ia(con, q, rota, ponte)
+    r = {"id": q["id"], "pergunta": q["pergunta"], "rota": "ia", "passos": [], "planos": [],
+         "tipo": None, "texto": "", "sql": None, "linhas": [], "erro": None, "revisada": False}
+
+    def pedir_plano(historico, revisao=False) -> dict:
+        st, corpo, seg = cli.consulta({"pergunta": q["pergunta"], "historico": historico})
+        r["passos"].append({"rota": "/consulta", "revisao": revisao, "tentativa": 1, "status": st,
+                            "segundos": round(seg, 2), "provedor": cli.medidas(),
+                            "erro": None if st == 200 else corpo.get("erro"),
+                            "detalhe": None if st == 200 else corpo.get("detalhe")})
+        if st != 200:
+            raise Falha(corpo.get("erro") or f"HTTP {st}")
+        r["planos"].append(corpo)
+        return corpo
+
+    def conversa(plano):
+        c = ponte.pedir({"op": "conversa", "resposta": plano.get("resposta", ""), "historico": hist,
+                         "pergunta": q["pergunta"]})
+        r["tipo"], r["texto"] = "conversa", c["texto"]
+        if not c["ok"]:
+            r["conversa_descartada"] = plano.get("resposta", "")
+
+    try:
+        plano = pedir_plano(hist)
+        if plano.get("tipo") == "conversa":
+            conversa(plano)
+        else:
+            r["tipo"] = "consulta"
+            linhas = executar(con, plano["sql"])
+            if not linhas and time.time() - t0 < 8:
+                r["revisada"] = True
+                novo = pedir_plano(hist + [{"pergunta": q["pergunta"], "sql": plano["sql"], "amostra": [],
+                                            "total": 0}], revisao=True)
+                if novo.get("tipo") == "conversa":
+                    conversa(novo)
+                    plano = None
+                elif novo.get("sql") and novo["sql"] != plano["sql"]:
+                    plano = novo
+                    linhas = executar(con, plano["sql"])
+            if plano is not None:
+                r["sql"], r["linhas"], r["plano"] = plano["sql"], linhas[:100], plano
+                narrar_como_a_pagina(ponte, r, plano, linhas, q["pergunta"])
+    except Falha as e:
+        r["erro"] = str(e)
+    r["segundos"] = round(time.time() - t0, 2)
+    return r
+
+
 def cmd_ao_vivo(args) -> int:
     dados = carregar()
     ids = set(args.ids.split(",")) if args.ids else None
     alvo = [q for q in dados["perguntas"] if (q["id"] in ids if ids else q.get("ao_vivo"))]
     fonte, entrada, variaveis = preparar_alvo(args.worker)
     con = abrir_banco()
+    atual = args.worker == "atual"
     print(f"worker {args.worker} · {len(alvo)} perguntas · subindo o wrangler dev…", flush=True)
-    with Servidor(entrada, variaveis, args.chave_falsa):
+    with Servidor(entrada, variaveis, args.chave_falsa), (Ponte() if atual else contextlib.nullcontext()) as ponte:
         cli = Cliente()
         saude = cli.saude()
         cli.medidas()
+        if atual:
+            ponte.pedir({"op": "iniciar", "dims": dimensoes(con)})
+            rotas = {q["id"]: ponte.pedir({"op": "rotear", "pergunta": q["pergunta"],
+                                           "historico": q.get("historico", [])})["rota"] for q in dados["perguntas"]}
+        else:
+            # Linha de base: a página não tinha roteador, então TODO texto digitado ia à IA.
+            rotas = {q["id"]: "ia" for q in dados["perguntas"]}
         resultados = []
         for q in alvo:
-            r = perguntar_como_a_pagina(cli, con, q)
+            r = perguntar_atual(cli, con, ponte, q) if atual else perguntar_como_a_pagina(cli, con, q)
             chamadas = sum(len(p.get("provedor") or []) for p in r["passos"])
-            print(f"  {q['id']:<15} {r['segundos']:6.1f} s · {r['tipo'] or '-':<9} · {chamadas} chamada(s)"
-                  f"{' · ' + r['erro'][:70] if r['erro'] else ''}", flush=True)
+            print(f"  {q['id']:<15} {r['segundos']:6.1f} s · {r.get('rota', 'ia'):<8} · {r['tipo'] or '-':<9} · "
+                  f"{chamadas} chamada(s){' · ' + r['erro'][:70] if r['erro'] else ''}", flush=True)
             resultados.append(r)
     gravacao = {
         "rodada": args.rodada,
@@ -630,8 +713,7 @@ def cmd_ao_vivo(args) -> int:
         "chave_falsa": args.chave_falsa,
         "saude": saude,
         "fatos_do_prompt": fatos_da_fonte(fonte, conhecimento_da_versao(args.worker)),
-        # Linha de base: a página não tem roteador, então TODO texto digitado vai à IA.
-        "rotas_de_todas": {q["id"]: "ia" for q in dados["perguntas"]},
+        "rotas_de_todas": rotas,
         "resultados": resultados,
     }
     GRAVACOES.mkdir(exist_ok=True)
@@ -733,6 +815,8 @@ def relatorio(rodada: str) -> int:
         f"| Acerto (o dado certo na tela) | {acertos} de {len(medidas)} ({br(100 * acertos / n)}%) |",
         f"| Acerto nas perguntas simples (rota esperada sem IA) | {acertos_s} de {len(simples)} ({br(100 * acertos_s / ns)}%) |",
         f"| Texto sem número inventado | {textos_ok} de {len(medidas)} |",
+        f"| Texto do modelo barrado pelo verificador da página | "
+        f"{sum(1 for r in grav['resultados'] if r.get('frase_descartada') or r.get('conversa_descartada'))} |",
         f"| Latência das respondidas sem IA | {faixa(tempos['sem IA'])} |",
         f"| Latência das que foram à IA | {faixa(tempos['IA'])} |",
         f"| Chamadas ao provedor por pergunta | média {br(sum(chamadas_q) / n, 1)} · máx {max(chamadas_q) if chamadas_q else 0} |",

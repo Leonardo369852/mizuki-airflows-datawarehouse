@@ -699,6 +699,7 @@ let SUGESTOES = [];
 let CONHECIMENTO = null;
 let ROTEADOR = null;     /* roteador.js: o que dá para responder sem IA */
 let MOD_ROTEADOR = null; /* o módulo, para as prontas parecidas quando a IA falha */
+let NARRADOR = null;     /* narrador.js: o texto da resposta, com números da consulta */
 let DIMENSOES = null;    /* entidades das dimensões, lidas do banco quando ele carrega */
 
 async function carregarConhecimento() {
@@ -706,10 +707,11 @@ async function carregarConhecimento() {
     if (!r.ok) throw new Error(`conhecimento/${n}.json: HTTP ${r.status}`);
     return r.json();
   });
-  const [montar, roteador, semantica, identidade, exemplos, apelidos, fatos] = await Promise.all([
-    import("./conhecimento/montar.js"), import("./roteador.js"), ler("semantica"), ler("identidade"),
-    ler("exemplos"), ler("apelidos"), ler("fatos")
+  const [montar, roteador, narrador, semantica, identidade, exemplos, apelidos, fatos] = await Promise.all([
+    import("./conhecimento/montar.js"), import("./roteador.js"), import("./narrador.js"),
+    ler("semantica"), ler("identidade"), ler("exemplos"), ler("apelidos"), ler("fatos")
   ]);
+  NARRADOR = narrador;
   CONHECIMENTO = { montar, semantica, identidade, apelidos,
                    exemplos: exemplos.exemplos, fatos: fatos.fatos };
   SUGESTOES = CONHECIMENTO.exemplos.filter(e => e.chip)
@@ -850,56 +852,13 @@ async function pedirPlano(pergunta, signal, hist = historico, { semCache = false
   return JSON.parse(bruto);
 }
 
-async function narrar(pergunta, plano, linhas, alvo, signal) {
-  const carga = { pergunta, sql: plano.sql, linhas: linhas.slice(0, 40),
-                  aviso: plano.aviso || "", historico };
-
-  if (WORKER) {
-    const r = await fetch(WORKER + "/narrar", {
-      method: "POST", signal,
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(carga)
-    });
-    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).erro || `HTTP ${r.status}`);
-    const leitor = r.body.getReader();
-    const dec = new TextDecoder();
-    let sobra = "", acc = "";
-    for (;;) {
-      const { done, value } = await leitor.read();
-      if (done) break;
-      sobra += dec.decode(value, { stream: true });
-      const ls = sobra.split("\n"); sobra = ls.pop() || "";
-      for (const l of ls) {
-        if (!l.startsWith("data:")) continue;
-        try {
-          const ev = JSON.parse(l.slice(5).trim());
-          if (ev.erro) throw new Error(ev.erro);
-          if (ev.t) { acc += ev.t; fala(alvo, acc); aoFundo(); }
-        } catch (e) { if (e instanceof Error && e.message !== "Unexpected end of JSON input") throw e; }
-      }
-    }
-    return acc;
-  }
-
-  const { text } = await sampleFn(
-    [{ role: "user", content: promptTexto() + "\n\n" + JSON.stringify(carga) }],
-    { cache: false, signal, modelTier: "default", onText: ({ text }) => { fala(alvo, text); aoFundo(); } }
-  );
-  return text;
-}
-
 /* Prompts só para o caminho sem Worker (dentro do Claude). Com Worker eles moram no
    servidor — se viessem do cliente, o endpoint seria um relay de LLM aberto. Os dois
    caminhos montam o texto dos mesmos arquivos de conhecimento/. */
 function promptSql() {
   return CONHECIMENTO.montar.promptConsulta(CONHECIMENTO)
     + "\nDevolva SÓ um objeto JSON com as chaves tipo, resposta, sql, grafico, x, y, serie, "
-    + "unidade, titulo, aviso.";
-}
-
-function promptTexto() {
-  return CONHECIMENTO.montar.promptNarracao(CONHECIMENTO)
-    + "\nVocê recebe um JSON com a pergunta, o SQL executado e as linhas que voltaram.";
+    + "unidade, titulo, aviso, frase.";
 }
 
 /* --------------------------------------------------------------------------
@@ -1255,30 +1214,6 @@ function detalhe(rotulo, conteudo) {
   return d;
 }
 
-/* Frase de reserva quando não há modelo: sai da primeira linha, não de um texto fixo.
-   Coordenada nunca é medida — num mapa, plano.x é a longitude e citá-la não diz nada. */
-function frase(plano, ls) {
-  if (!ls.length) return "A consulta não retornou linhas.";
-  const l = ls[0];
-  const coord = k => /latitude|longitude/.test(k);
-  const chave = Object.keys(l).find(k => !ehNum(l[k]));
-  const medida = [plano.y, plano.x].find(k => ehNum(l[k]) && !coord(k))
-    || Object.keys(l).find(k => ehNum(l[k]) && !coord(k));
-  if (!medida) return `${ls.length} ${ls.length === 1 ? "linha" : "linhas"}.`;
-  const un = (medida === plano.x || medida === plano.y) ? plano.unidade : "";
-  const valor = rot(l[medida], un);
-  if (plano.grafico === "linha" && chave && ls.length > 1) {
-    /* Em série no tempo a primeira linha é o período mais antigo, não o "topo". */
-    let iMax = 0;
-    ls.forEach((r, i) => { if (ehNum(r[medida]) && r[medida] > ls[iMax][medida]) iMax = i; });
-    return `De ${ls[0][chave]} a ${ls[ls.length - 1][chave]}, o pico foi em ${ls[iMax][chave]}: `
-      + `${rot(ls[iMax][medida], un)}. O SQL e a tabela estão abaixo.`;
-  }
-  if (ls.length === 1) return chave ? `${l[chave]}: ${valor}.` : `${valor}.`;
-  return (chave ? `No topo, ${l[chave]} com ${valor}` : `Maior valor: ${valor}`)
-    + `. São ${nf(ls.length)} linhas — o SQL e a tabela estão abaixo.`;
-}
-
 async function ask(pergunta, planoPronto, opcoes = {}) {
   if (busy) return;
   const planoOriginal = planoPronto;
@@ -1344,8 +1279,9 @@ async function ask(pergunta, planoPronto, opcoes = {}) {
        Forçar tudo a virar SQL fazia o modelo inventar um SELECT que retornava uma
        mensagem de desculpa, apresentada com a aparência de dado consultado. */
     if (plano.tipo === "conversa") {
-      fala(texto, plano.resposta);
-      registrar({ pergunta, resposta: plano.resposta });
+      const resposta = conversaConferida(plano.resposta, pergunta);
+      fala(texto, resposta);
+      registrar({ pergunta, resposta });
       aoFundo();
       return;
     }
@@ -1366,8 +1302,9 @@ async function ask(pergunta, planoPronto, opcoes = {}) {
       const novo = await pedirPlano(pergunta, ctl.signal,
         [...historico, { pergunta, sql: plano.sql, amostra: [], total: 0 }]);
       if (novo.tipo === "conversa") {
-        fala(texto, novo.resposta);
-        registrar({ pergunta, resposta: novo.resposta });
+        const resposta = conversaConferida(novo.resposta, pergunta);
+        fala(texto, resposta);
+        registrar({ pergunta, resposta });
         aoFundo();
         return;
       }
@@ -1414,9 +1351,10 @@ async function ask(pergunta, planoPronto, opcoes = {}) {
     /* Só agora o bloco tem a altura final: rolar antes deixava o gráfico fora da tela. */
     aoFundo();
 
-    /* Pergunta pronta já traz a consulta escrita: responde da própria tabela, sem
-       chamar o modelo. É o que a interface promete, e mantém as chips instantâneas e
-       de graça — o orçamento de IA fica para o texto livre. */
+    /* O texto da resposta sai do narrador (narrador.js), na hora e sem IA: a `frase` do
+       plano preenchida com os números da consulta, ou, se ela não fecha ou traz número de
+       fora, a frase que o código escreve sozinho. Antes uma segunda chamada (/narrar)
+       escrevia o texto, e somou as 16 linhas de São Paulo como 322.327 em vez de 317.327. */
     if (!linhas.length) {
       /* Resultado vazio não vai para o narrador: sem nada para descrever, ele inventava o
          motivo ("porque o cadastro só cobre…", "porque o piso de 100 voos…") e nenhum era
@@ -1426,21 +1364,11 @@ async function ask(pergunta, planoPronto, opcoes = {}) {
           + "pedido não exista na base, ou que um filtro não bata com a forma como o dado está "
           + "escrito. O SQL está abaixo para conferir."
         : "A consulta não encontrou nenhuma linha. O SQL está abaixo para conferir.");
-    } else if (temLLM && !planoPronto) {
-      pensando(texto, "Escrevendo");
-      try {
-        await narrar(pergunta, plano, linhas, texto, ctl.signal);
-      } catch (e) {
-        if (e.name === "AbortError") throw e;
-        /* A narração é o acabamento: gráfico, SQL e tabela já estão na tela. Se a IA
-           falhar aqui, a resposta sai da própria tabela, como nas perguntas prontas — em
-           vez de uma tela de erro que pedia para refazer a pergunta inteira, gastando
-           outra consulta para chegar ao mesmo gráfico. */
-        console.warn("narração:", e);
-        fala(texto, frase(plano, linhas));
-      }
     } else {
-      fala(texto, frase(plano, linhas));
+      const n = NARRADOR ? NARRADOR.narrar(plano, linhas, { fatos: CONHECIMENTO?.fatos, pergunta })
+        : { texto: `${nf(linhas.length)} ${linhas.length === 1 ? "linha" : "linhas"}. O SQL e a tabela estão abaixo.` };
+      if (n.descartada) console.warn("frase descartada, número de fora:", n.desconhecidos, n.descartada);
+      fala(texto, n.texto);
     }
 
     /* O turno entra na conversa com o SQL e as primeiras linhas: é o que permite
@@ -1469,6 +1397,16 @@ async function ask(pergunta, planoPronto, opcoes = {}) {
   } finally {
     busy = false; sendBtn.disabled = false; stopBtn.hidden = true; ctl = null;
   }
+}
+
+/* Resposta em prosa do modelo ("o que isso significa?") só pode citar número que já está na
+   conversa, na pergunta ou nos fatos da base. Número novo é conta de cabeça: não vai para a
+   tela, e quem perguntou é convidado a pedir o dado, que aí vem da consulta. */
+function conversaConferida(resposta, pergunta) {
+  const c = NARRADOR?.conferirConversa(resposta, { historico, fatos: CONHECIMENTO?.fatos, pergunta });
+  if (!c || c.ok) return resposta;
+  console.warn("conversa descartada, número de fora:", c.desconhecidos, resposta);
+  return CONHECIMENTO.montar.respostaFixa(CONHECIMENTO.identidade, CONHECIMENTO.fatos, "conversa_descartada");
 }
 
 /* Quando a IA não responde — congestionada, em pausa, sem cota ou sem Worker —, a resposta

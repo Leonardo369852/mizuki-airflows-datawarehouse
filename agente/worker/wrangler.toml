@@ -32,20 +32,18 @@ PROVEDOR = "gemini"               # "gemini" (free tier) ou "anthropic" (pago)
 MODELO = "gemini-3.6-flash"
 MODELOS_RESERVA = "gemini-3.1-flash-lite,gemini-3.5-flash,gemini-flash-latest"
 
-# A narração só resume uma tabela já calculada — não escreve SQL — e roda bem no modelo
-# leve. Ele vai primeiro nela; o principal fica de reserva.
-MODELO_NARRACAO = "gemini-3.1-flash-lite"
-
-# Teto próprio de chamadas por dia. Fica ABAIXO do limite real do free tier do Gemini
-# de propósito: se o nosso teto estourar primeiro, o visitante recebe "a cota do dia
-# acabou, as perguntas prontas continuam funcionando"; se for o do Google, ele recebe
-# um 503 de fila cheia, que não explica nada e parece defeito. Medido hoje: a cota
-# diária acabou depois de algumas dezenas de chamadas entre todos os modelos.
+# Teto próprio de perguntas por dia que chegam à IA (o cache e as respostas sem IA da página
+# não contam). Fica ABAIXO do limite real do free tier do Gemini de propósito: se o nosso
+# teto estourar primeiro, o visitante recebe "o limite do dia acabou, as perguntas prontas
+# continuam funcionando"; se for o do Google, um 429 de cota. O /saude mostra as duas
+# contas — perguntas e chamadas ao provedor, por modelo —, porque uma pergunta pode custar
+# mais de uma chamada. Medido em 23/09/2026: a cota acabou depois de algumas dezenas de
+# chamadas entre todos os modelos.
 LIMITE_DIARIO = "150"
 
-# Prazos da chamada ao modelo. O prazo vale até a resposta começar: uma narração em
-# streaming não é cortada no meio. Medido: um modelo saudável responde em 4 a 5 s, e um
-# congestionado fica pendurado até o prazo. Com o /consulta limitado a 20 s, 15 s por
+# Prazos da chamada ao modelo, contados até a resposta começar. Medido: um modelo saudável
+# responde em 4 a 5 s, e um congestionado fica pendurado até o prazo. Com o /consulta
+# limitado a 20 s, 15 s por
 # tentativa gastavam a primeira rodada inteira num pendurado e não sobrava tempo para a
 # segunda; com 12 s, sobram uns 6 s para ela. Medir antes de mexer: /saude mostra os
 # valores, a fila e as chamadas do dia, sem gastar chamada de modelo.
@@ -62,12 +60,11 @@ ATRASO_RESERVA_MS  = "6000"
 # Falha rápida. A consulta chegou a insistir por um minuto, em quatro rodadas, e a espera
 # virou o problema. Agora: 20 s e duas rodadas (se os dois modelos rápidos devolvem "high
 # demand", espera 1,5 s e tenta de novo com eles). Na falha, a página oferece na hora as
-# três perguntas prontas mais parecidas, que não dependem da IA. A narração desiste cedo
-# porque a página tem saída sem ela: o gráfico já está na tela e o texto sai da tabela.
-# Para voltar ao comportamento anterior: 60000, 4 e 25000.
+# três perguntas prontas mais parecidas, que não dependem da IA. Não há mais narração pela
+# IA: o texto vem na frase do próprio plano. Para voltar ao comportamento anterior da
+# consulta: 60000 e 4.
 PRAZO_CONSULTA_MS  = "20000"
 RODADAS_CONSULTA   = "2"
-PRAZO_NARRACAO_MS  = "8000"
 
 # Exemplos pergunta → plano no prompt do /consulta: só os mais parecidos com a pergunta,
 # escolhidos de agente/conhecimento/exemplos.json. Os 18 inteiros custariam ~2,5 mil

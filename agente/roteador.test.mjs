@@ -112,7 +112,8 @@ test("nome que é palavra comum só vale com grafia de nome", () => {
   assert.doesNotMatch(rota("Para a gol, qual a pontualidade?").plano.sql, /'PA'/, "inicial maiúscula não basta com acento");
   assert.match(rota("quantos voos saíram do Pará?").plano.sql, /a\.uf = 'PA'/);
   assert.match(rota("quantos voos do para?").plano.sql, /a\.uf = 'PA'/, "depois de 'do' só pode ser o estado");
-  assert.match(rota("quantos voos saíram de Palmas?").plano.sql, /a\.municipio = 'PALMAS'/);
+  assert.match(rota("quantos voos saíram de Palmas?").plano.sql, /f\.icao_origem = 'SBPJ'/,
+               "município de um aeroporto só é aquele aeroporto");
   assert.match(rota("voos de SE").plano?.sql ?? "", /a\.uf = 'SE'/, "sigla ambígua em maiúscula vale");
   assert.equal(rota("voos de se").rota === "template" && /'SE'/.test(rota("voos de se").plano.sql), false);
 });

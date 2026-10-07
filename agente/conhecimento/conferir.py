@@ -204,14 +204,47 @@ def gerar_fatos(m: dict) -> dict:
 # ─── 3 a 6. conferências ──────────────────────────────────────────────────────
 
 def textos(no):
+    """Todo texto onde pode haver {fato}. O campo "frase" fica de fora: as chaves dele são
+    marcadores que a página preenche com o resultado da consulta, não fatos."""
     if isinstance(no, str):
         yield no
     elif isinstance(no, list):
         for x in no:
             yield from textos(x)
     elif isinstance(no, dict):
-        for x in no.values():
-            yield from textos(x)
+        for k, x in no.items():
+            if k != "frase":
+                yield from textos(x)
+
+
+MARCADOR = re.compile(r"\{([a-z_0-9]+)(?:\.([a-z_0-9]+))?\}")
+AGREGADOS = {"total", "maior", "menor", "primeiro", "ultimo"}
+
+
+def problemas_da_frase(frase: str, linhas: list[dict]) -> list[str]:
+    """A frase de um exemplo fecha com o resultado dele? É o que agente/narrador.js exige para
+    usar a frase em vez da própria."""
+    cols = linhas[0].keys()
+    erros = []
+    for a, b in MARCADOR.findall(frase):
+        if a == "n" and not b:
+            continue
+        if a in AGREGADOS and b:
+            if b == "rotulo" and a != "total":
+                continue
+            if b not in cols:
+                erros.append(f"{{{a}.{b}}}: coluna inexistente")
+            elif a == "total" and not all(v is None or (isinstance(v, int) and not isinstance(v, bool))
+                                          for v in (l[b] for l in linhas)):
+                erros.append(f"{{total.{b}}}: só se soma contagem")
+        elif not b and a not in cols:
+            erros.append(f"{{{a}}}: coluna inexistente")
+        elif b:
+            erros.append(f"{{{a}.{b}}}: agregado desconhecido")
+    sem_marcas = re.sub(r"[a-z]{3}/\d{4}", "", MARCADOR.sub("", frase))
+    if re.search(r"\d", sem_marcas):
+        erros.append("número digitado fora de marcador")
+    return erros
 
 
 def sql_suspeito(sql: str):
@@ -288,6 +321,10 @@ def conferir(con, sem, ide, exe, ape, fatos) -> list[str]:
         slot = MEDIDA_EM.get(p.get("grafico"))
         if slot and p.get(slot) in cols and not eh_num(linhas[0][p[slot]]):
             erros.append(f"exemplo '{rot}': {slot} tem de ser a medida em {p['grafico']}")
+        if not p.get("frase"):
+            erros.append(f"exemplo '{rot}': consulta sem frase")
+        else:
+            erros += [f"exemplo '{rot}': frase {e}" for e in problemas_da_frase(p["frase"], linhas)]
 
     # 6. Apelidos.
     aero = {r["icao"]: r for r in rodar(con, "SELECT icao, nome, municipio FROM dim_aerodromo")}

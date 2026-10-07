@@ -1,6 +1,6 @@
 /**
- * Monta os textos do agente a partir de agente/conhecimento/*.json: o prompt do /consulta e do
- * /narrar (no Worker), as respostas fixas e o plano das perguntas prontas (na página).
+ * Monta os textos do agente a partir de agente/conhecimento/*.json: o prompt do /consulta (no
+ * Worker), as respostas fixas e o plano das perguntas prontas (na página).
  *
  * Uma fonte só. Antes, o mesmo conhecimento vivia em cinco lugares — SCHEMA, QUEM_SOU e
  * CONTEXTO_NARRACAO no Worker, SUGESTOES e PROMPT_SQL na página — e eles já discordavam: o
@@ -95,15 +95,10 @@ export function roteamentoEmTexto(ide) {
   return "\n" + juntar(ide.roteamento) + "\n";
 }
 
-export function contextoNarracaoEmTexto(ide, fatos) {
-  const n = ide.narracao;
-  return ["", ...n.contexto.map((t) => preencher(t, fatos)), "",
-          "Ressalvas da fonte, cite quando afetarem o número em questão:",
-          ...n.ressalvas.map((t) => "- " + preencher(t, fatos)), ""].join("\n");
-}
-
-export function regrasNarracaoEmTexto(ide) {
-  return ["", ide.narracao.papel, "", ...ide.narracao.regras, ""].join("\n");
+/** A regra da frase com marcadores. Não passa por `preencher`: as chaves aqui são marcadores
+    que a página preenche com os valores da consulta (agente/narrador.js), não fatos. */
+export function fraseEmTexto(ide) {
+  return "\nFRASE\n" + juntar(ide.frase) + "\n";
 }
 
 /** O prompt fixo do /consulta, na ordem em que vai ao modelo. Os exemplos escolhidos para a
@@ -111,12 +106,8 @@ export function regrasNarracaoEmTexto(ide) {
     provedor consegue reaproveitar. */
 export function promptConsulta({ semantica, identidade, fatos }) {
   return semanticaEmTexto(semantica, fatos) + resumoEmTexto(identidade, fatos)
-       + limitesEmTexto(identidade, fatos) + roteamentoEmTexto(identidade) + regrasSqlEmTexto(semantica);
-}
-
-/** O prompt fixo do /narrar: só o que a narração usa — nada de colunas nem regras de SQL. */
-export function promptNarracao({ identidade, fatos }) {
-  return contextoNarracaoEmTexto(identidade, fatos) + regrasNarracaoEmTexto(identidade);
+       + limitesEmTexto(identidade, fatos) + roteamentoEmTexto(identidade) + regrasSqlEmTexto(semantica)
+       + fraseEmTexto(identidade);
 }
 
 /** Exemplos pergunta → plano, no formato que o modelo devolve. */
@@ -127,7 +118,7 @@ export function exemplosEmTexto(lista, fatos) {
     const plano = p.tipo === "conversa"
       ? { tipo: "conversa", resposta: p.resposta }
       : { tipo: "consulta", sql: p.sql.replace(/\s+/g, " "), grafico: p.grafico, x: p.x, y: p.y,
-          unidade: p.unidade || "nenhuma", titulo: p.titulo, aviso: p.aviso };
+          unidade: p.unidade || "nenhuma", titulo: p.titulo, aviso: p.aviso, frase: p.frase ?? "" };
     return `Pergunta: ${ex.pergunta}\nPlano: ${JSON.stringify(plano)}`;
   });
   return "\nEXEMPLOS — perguntas parecidas com a de agora, e o plano certo para cada uma\n"
