@@ -55,6 +55,7 @@ BASE = f"http://127.0.0.1:{PORTA}"
 ORIGEM = "http://127.0.0.1:8000"
 TABELAS = ["fato_voos", "dim_empresa", "dim_aerodromo", "dim_rota", "dim_tempo"]
 POSTS_POR_MINUTO = 6           # REQUISICOES_POR_MINUTO_POR_IP do Worker: o avaliador respeita
+ESPERA_MAXIMA = 20             # ESPERA_MAXIMA_MS da página, em segundos: a revisão cabe nela
 SEMPRE_CONHECIDOS = [2025.0, 2026.0]
 
 
@@ -501,11 +502,12 @@ class Cliente:
             BASE + rota, method="POST", data=json.dumps(corpo, ensure_ascii=False).encode("utf-8"),
             headers={"content-type": "application/json", "Origin": ORIGEM})
 
-    def consulta(self, corpo: dict) -> tuple[int, dict, float]:
+    def consulta(self, corpo: dict, prazo: float = 150) -> tuple[int, dict, float]:
+        """Status 0 = a página desistiu de esperar (o prazo dela passou antes da resposta)."""
         self._ritmo()
         t0 = time.time()
         try:
-            with urllib.request.urlopen(self._pedido("/consulta", corpo), timeout=150) as resp:
+            with urllib.request.urlopen(self._pedido("/consulta", corpo), timeout=prazo) as resp:
                 return resp.status, json.loads(resp.read().decode("utf-8")), time.time() - t0
         except urllib.error.HTTPError as e:
             bruto = e.read().decode("utf-8", "replace")
@@ -514,6 +516,10 @@ class Cliente:
             except ValueError:
                 j = {"erro": bruto[:300]}
             return e.code, j, time.time() - t0
+        except (TimeoutError, urllib.error.URLError) as e:
+            if not isinstance(e, TimeoutError) and not isinstance(e.reason, TimeoutError):
+                raise
+            return 0, {"erro": f"sem resposta em {prazo:.0f} s"}, time.time() - t0
 
     def narrar(self, corpo: dict) -> dict:
         self._ritmo()
@@ -626,8 +632,8 @@ def perguntar_como_a_pagina(cli: Cliente, con, q: dict) -> dict:
 
 def perguntar_atual(cli: Cliente, con, ponte: Ponte, q: dict) -> dict:
     """O ask() da página de agora: o roteador primeiro; para a IA, um /consulta só (o Worker já
-    insiste), a revisão de consulta vazia só se a primeira veio rápido, e o texto do narrador
-    da página — sem /narrar."""
+    insiste), a revisão de consulta vazia só se a primeira veio rápido e só com o que sobra dos
+    20 s, e o texto do narrador da página — sem /narrar."""
     hist = q.get("historico", [])
     t0 = time.time()
     rota = ponte.pedir({"op": "rotear", "pergunta": q["pergunta"], "historico": hist})
@@ -636,8 +642,8 @@ def perguntar_atual(cli: Cliente, con, ponte: Ponte, q: dict) -> dict:
     r = {"id": q["id"], "pergunta": q["pergunta"], "rota": "ia", "passos": [], "planos": [],
          "tipo": None, "texto": "", "sql": None, "linhas": [], "erro": None, "revisada": False}
 
-    def pedir_plano(historico, revisao=False) -> dict:
-        st, corpo, seg = cli.consulta({"pergunta": q["pergunta"], "historico": historico})
+    def pedir_plano(historico, revisao=False, prazo=150) -> dict:
+        st, corpo, seg = cli.consulta({"pergunta": q["pergunta"], "historico": historico}, prazo)
         r["passos"].append({"rota": "/consulta", "revisao": revisao, "tentativa": 1, "status": st,
                             "segundos": round(seg, 2), "provedor": cli.medidas(),
                             "erro": None if st == 200 else corpo.get("erro"),
@@ -662,9 +668,14 @@ def perguntar_atual(cli: Cliente, con, ponte: Ponte, q: dict) -> dict:
             r["tipo"] = "consulta"
             linhas = executar(con, plano["sql"])
             if not linhas and time.time() - t0 < 8:
-                r["revisada"] = True
-                novo = pedir_plano(hist + [{"pergunta": q["pergunta"], "sql": plano["sql"], "amostra": [],
-                                            "total": 0}], revisao=True)
+                try:
+                    novo = pedir_plano(hist + [{"pergunta": q["pergunta"], "sql": plano["sql"], "amostra": [],
+                                                "total": 0}], revisao=True,
+                                       prazo=max(1.0, ESPERA_MAXIMA - (time.time() - t0)))
+                    r["revisada"] = True
+                except Falha:
+                    novo = {}                 # a página fica com a primeira consulta, vazia
+                    r["revisao_sem_resposta"] = True
                 if novo.get("tipo") == "conversa":
                     conversa(novo)
                     plano = None

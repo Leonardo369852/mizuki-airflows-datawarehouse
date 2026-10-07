@@ -676,6 +676,9 @@ function txt(parent, x, y, s, o = {}) {
 /* Worker que guarda o prompt e a chave da IA. Ver agente/worker/README.md.
    Vazio = a página funciona só com as perguntas prontas, que trazem o próprio SQL. */
 const WORKER = "https://mizuki-agente.leonardo369852.workers.dev";
+/* O máximo que uma pergunta espera pela IA, revisão incluída. O Worker já para nos 20 s
+   (PRAZO_CONSULTA_MS); a página só precisa disto para a revisão não somar outros 20. */
+const ESPERA_MAXIMA_MS = 20000;
 
 const TABELAS = ["fato_voos", "dim_empresa", "dim_aerodromo", "dim_rota", "dim_tempo"];
 
@@ -822,6 +825,11 @@ async function rodar(sql) {
    pior caso passava de dois minutos de "Pensando". Na falha, a página oferece na hora as
    perguntas prontas mais parecidas (ver oferecerProntas). `semCache` é o "tentar de novo":
    pede um plano novo em vez do guardado. */
+/* O sinal do botão parar, com um prazo junto. Navegador sem AbortSignal.any fica só com o
+   botão — e com o prazo do Worker. */
+const comPrazo = (signal, ms) => AbortSignal.any && AbortSignal.timeout
+  ? AbortSignal.any([signal, AbortSignal.timeout(Math.max(1, Math.round(ms)))]) : signal;
+
 async function pedirPlano(pergunta, signal, hist = historico, { semCache = false } = {}) {
   if (WORKER) {
     const r = await fetch(WORKER + "/consulta", {
@@ -1293,22 +1301,29 @@ async function ask(pergunta, planoPronto, opcoes = {}) {
        base. O caso medido: "uf = 'SP'" contra uma coluna que guardava "São Paulo", e o
        estado com mais voos do país aparecia vazio. O agente reescreve UMA vez, sabendo que
        a primeira voltou vazia. Custa uma chamada, e só nesse caso. Pergunta pronta não
-       entra: o SQL dela foi escrito à mão. Só revisa se a primeira veio rápido: com a IA
-       congestionada, uma segunda ida passaria dos ~20 s de espera que a página promete. */
+       entra: o SQL dela foi escrito à mão. Só revisa se a primeira veio rápido, e a revisão
+       tem só o que sobra dos 20 s: sem resposta a tempo, fica a primeira consulta, vazia,
+       com o SQL para conferir — não uma tela de erro. */
     let sqlVazio = null;
     if (!linhas.length && temLLM && !planoPronto && performance.now() - inicio < 8000) {
       pensando(texto, "Revisando a consulta");
-      sqlVazio = plano.sql;
-      const novo = await pedirPlano(pergunta, ctl.signal,
-        [...historico, { pergunta, sql: plano.sql, amostra: [], total: 0 }]);
-      if (novo.tipo === "conversa") {
+      const restante = ESPERA_MAXIMA_MS - (performance.now() - inicio);
+      const novo = await pedirPlano(pergunta, comPrazo(ctl.signal, restante),
+        [...historico, { pergunta, sql: plano.sql, amostra: [], total: 0 }])
+        .catch((e) => {
+          if (ctl.signal.aborted) throw e;                 /* o visitante parou: "Interrompido." */
+          console.warn("revisão sem resposta:", e.message);
+          return null;
+        });
+      if (novo) sqlVazio = plano.sql;
+      if (novo?.tipo === "conversa") {
         const resposta = conversaConferida(novo.resposta, pergunta);
         fala(texto, resposta);
         registrar({ pergunta, resposta });
         aoFundo();
         return;
       }
-      if (novo.sql && novo.sql !== plano.sql) {
+      if (novo?.sql && novo.sql !== plano.sql) {
         pensando(texto, "Consultando");
         plano = novo;
         ({ linhas, ms } = await rodar(plano.sql));
