@@ -65,17 +65,23 @@ modelo dele não sustenta.
 ```
 sua pergunta
     ↓
-Cloudflare Worker  ──→  Gemini          devolve {tipo, sql, gráfico, aviso}
-    ↓                   (chave e prompt ficam no servidor)
-DuckDB-WASM        ──→  executa o SQL no SEU navegador
-    ↓                   sobre 5 Parquet estáticos, 1,5 MB
-gráfico + "ver o SQL" + a tabela de linhas
+roteador, no navegador  ──→  saudação, ajuda, pergunta fora do grão: texto pronto
+    ↓                   ──→  pergunta pronta, ou "voos / pontualidade / cancelamento / atraso
+    ↓                        de <estado | aeroporto | empresa | mês>": o SQL é montado aqui
+    ↓ (só o resto)
+Cloudflare Worker       ──→  Gemini   devolve {tipo, sql, gráfico, aviso, frase}
+    ↓                        (chave e prompt ficam no servidor)
+DuckDB-WASM             ──→  executa o SQL no SEU navegador, sobre 5 Parquet estáticos, 1,5 MB
+    ↓
+narrador, no navegador  ──→  preenche a frase com os números da consulta
+gráfico + texto + "ver o SQL" + a tabela de linhas
 ```
 
-**O modelo nunca produz um número.** Ele escolhe a consulta; a conta é feita na máquina de quem
-pergunta. Por isso cada resposta traz o SQL que a gerou, aberto ao lado. Num portfólio de
-engenharia de dados, um número inventado que parece plausível é o pior defeito possível — este
-desenho torna isso impossível por construção.
+**O modelo nunca produz um número.** Ele escolhe a consulta e escreve a frase da resposta com
+marcadores no lugar dos números (`"Os {n} aeroportos somam {total.voos} partidas"`); a conta é feita
+na máquina de quem pergunta, e a frase é preenchida com o resultado. Por isso cada resposta traz o
+SQL que a gerou, aberto ao lado. Num portfólio de engenharia de dados, um número inventado que
+parece plausível é o pior defeito possível — este desenho torna isso impossível por construção.
 
 ### Decisões que sustentam o resto
 
@@ -94,15 +100,40 @@ compressão de 11,7x, 1,5 MB no total.
 a `obt_voos`, outra compara o OTP por empresa nas duas fontes. A segunda existe porque, se uma chave
 faltasse no `GROUP BY`, os totais ainda fechariam — mas os cortes não.
 
-**Roteamento antes de SQL.** Nem toda pergunta é consulta. "o que isso significa?", "o que é você?",
-"obrigado" recebem resposta em prosa, sem gráfico e sem SQL. O agente também recebe os últimos
-turnos da conversa com o SQL e as primeiras linhas de cada um, então "e em fevereiro?" reaproveita a
-consulta anterior trocando só o filtro.
+**O que dá para responder sem IA não vai à IA.** Antes, toda mensagem ia ao Gemini — até "oi" —, e
+com o free tier congestionado "oi" esperava até um minuto. O roteador ([`agente/roteador.js`](agente/roteador.js))
+responde no navegador a saudação, a ajuda e a pergunta que o grão não sustenta; reconhece a pergunta
+pronta dita de outro jeito; e monta sozinho o SQL de "voos em São Paulo" ou "pontualidade da GOL",
+com o dicionário tirado das próprias dimensões. Só com casamento inequívoco: "qual a pontualidade da
+gol?" é igual ao exemplo da Azul palavra por palavra, e sobra de palavra que o template não explica
+manda a pergunta para a IA. Nas 31 perguntas da [avaliação](agente/avaliacao/), 24 saem sem IA, todas
+com o dado certo, entre 44 e 130 ms.
+
+**Nem o texto tem número escrito pelo modelo.** Uma segunda chamada à IA escrevia o texto a partir das
+linhas e somou as 16 de São Paulo como 322.327 partidas, quando eram 317.327. Agora a frase vem com
+marcadores e o [narrador](agente/narrador.js) a preenche; um verificador confere todo número do texto
+contra a consulta, e frase com número de fora é trocada pela que o código escreve sozinho. Uma chamada
+a menos por pergunta.
+
+**Uma base de conhecimento, uma fonte.** O que o agente sabe — tabelas e regras, quem ele é, exemplos,
+apelidos (GRU, Congonhas, Viracopos) — mora em [`agente/conhecimento/`](agente/conhecimento/), e o Worker
+e a página leem os mesmos arquivos. Número de dado não é digitado: vem do manifest do export. Quando era
+digitado, o prompt dizia set/2025 a ago/2026 para dados de ago/2025 a jul/2026.
+
+**Falha rápida, e com saída.** O Worker insiste no máximo 20 s; na falha, a página oferece na hora as
+três perguntas prontas mais parecidas. Três falhas seguidas pausam a IA por 5 min (disjuntor), plano de
+pergunta repetida sai do cache, e as chamadas ao provedor — não só as perguntas — são contadas por modelo
+no `/saude`.
+
+**Roteamento antes de SQL.** Nem toda pergunta é consulta. "o que isso significa?" e "isso é bom?"
+recebem resposta em prosa, sem gráfico e sem SQL — e só podem citar número que já está na conversa. O
+agente recebe os últimos turnos com o SQL e as primeiras linhas de cada um, então "e em fevereiro?"
+reaproveita a consulta anterior trocando só o filtro.
 
 **Consulta vazia é revisada, não narrada.** Zero linhas numa pergunta livre quase sempre é um filtro
 de texto que não bate com a base. O agente reescreve a consulta uma vez, sabendo que a primeira voltou
-vazia, e a tela mostra as duas. Se a segunda também vier vazia, o texto é fixo e o narrador não entra:
-sem nada para descrever, ele inventava o motivo do vazio.
+vazia, e a tela mostra as duas. Se a segunda também vier vazia, o texto é fixo: sem nada para
+descrever, um narrador inventava o motivo do vazio.
 
 **O prompt fica no servidor, não na página.** Se o cliente pudesse mandar o prompt, o endpoint seria
 um relay de LLM aberto — alguém acharia a URL e usaria a cota para gerar qualquer coisa. Aceitando
@@ -125,9 +156,9 @@ porque o projeto inteiro se apoia em não esconder o que descarta.
 
 **1. 30.800 voos (3,0%) não têm data de partida prevista.** Sem horário previsto não há atraso a
 calcular, então nenhum deles conta como pontual — mas todos entram no denominador. É por isso que a
-pontualidade geral (**79,9%**) é *menor* que a de qualquer um dos doze meses individuais (81,4% a
-85,9%). Sobre os 954.760 voos realizados com horário previsto, ela é **82,5%**. Esses voos também
-desaparecem de todo recorte por tempo.
+pontualidade geral (**79,9%**) fica abaixo da de 11 dos 12 meses (81,4% a 85,9%); a exceção, no fato
+exportado, é dez/2025, com 72,0% **[A CONFIRMAR na Gold]**. Sobre os 954.760 voos realizados com
+horário previsto, ela é **82,5%**. Esses voos também desaparecem de todo recorte por tempo.
 
 **2. A justificativa de cancelamento está vazia.** Todos os 29.145 cancelamentos trazem `N/A` no
 código de justificativa: **um único valor distinto na coluna inteira**. Não é possível dizer por que
@@ -156,6 +187,14 @@ nome promete, e o nome por extenso foi para `estado`.
 `TAM LINHAS AÉREAS S.A.`. Procurar "LATAM" no nome encontra a LATAM chilena e devolve 14 mil voos:
 um número plausível e errado, sem erro nenhum aparecendo. A exportação ganhou a coluna `marca`
 (LATAM, GOL, AZUL), que agrupa as operadoras de cada grupo.
+
+**8. Um quinto dos voos não tem distância.** 1.444 rotas (19,2% dos voos) ligam aeródromos sem
+coordenada, e a `distancia_km` delas é nula. Uma média de distância que conta esses voos no denominador
+sai uns 20% abaixo da verdadeira — 827 km em vez de 1.024 —, de novo sem erro nenhum aparecendo.
+
+**9. O rótulo de um aeroporto é o município.** E o Rio de Janeiro tem três (Galeão, Santos Dumont e
+Jacarepaguá): agrupar pelo rótulo funde os três numa barra só. O agente agrupa pelo ICAO e mostra o
+rótulo.
 
 ### Um achado analítico
 
@@ -301,8 +340,12 @@ arquivos em `agente/dados/`.
 ```
 agente/
   index.html       a página pública: chat, DuckDB-WASM e os gráficos
+  roteador.js      o que responde sem IA: fixa, pergunta pronta, template
+  narrador.js      o texto da resposta, com os números da consulta
+  conhecimento/    o que o agente sabe — semântica, identidade, exemplos, apelidos, fatos
+  avaliacao/       31 perguntas com gabarito no DuckDB, medidor de chamadas e relatórios
   dados/           5 Parquet + manifest.json, exportados da Gold (1,5 MB)
-  worker/          Cloudflare Worker: guarda a chave e o prompt da IA
+  worker/          Cloudflare Worker: guarda a chave e monta o prompt da IA
 databricks/
   Bronze/          notebooks de ingestão (Python)
   Silver/          notebook de governança (SQL) + pipeline declarativo + qualidade

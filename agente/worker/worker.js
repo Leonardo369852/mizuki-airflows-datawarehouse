@@ -45,7 +45,7 @@ const ORIGENS_PERMITIDAS = [
 
 const MAX_CARACTERES_PERGUNTA = 300;
 const REQUISICOES_POR_MINUTO_POR_IP = 6;
-const LIMITE_DIARIO_PADRAO = 400; // requisições à IA por dia, somando as duas rotas
+const LIMITE_DIARIO_PADRAO = 400; // perguntas que vão à IA por dia; as do cache não contam
 const MAX_TURNOS_HISTORICO = 5;   // conversa enviada ao modelo; mais que isso é token gasto
 const DISJUNTOR_FALHAS_PADRAO = 3;      // falhas seguidas que pausam a IA
 const DISJUNTOR_PAUSA_PADRAO = 300000;  // por quanto tempo, em ms
@@ -483,8 +483,7 @@ async function chamar(env, { sistema, usuario, esquema, maxTokens, stream, model
      Medido em 23/09/2026: o principal saudável responde em 3 a 5 s, mas às vezes fica
      pendurado até o prazo de 15 s — e aí a pergunta levava 20 s; com a reserva aos 6 s,
      esse caso cai para uns 11 s. Ela dispara no máximo uma vez por rodada, e quem perde
-     a corrida é abortado. O contador diário do KV conta perguntas, não chamadas ao
-     provedor. */
+     a corrida é abortado — e anotado como "perdeu" no dia, porque a chamada foi feita. */
   async function rodada(candidatos) {
     const inicio = Date.now();
     const correndo = new Map();                /* promessa da tentativa -> seu AbortController */
