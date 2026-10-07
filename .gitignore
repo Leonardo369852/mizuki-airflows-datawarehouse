@@ -23,6 +23,9 @@ venv/
 .wrangler/
 node_modules/
 
+# Avaliação do agente: a versão do Worker sob teste e o estado do wrangler dev local.
+agente/avaliacao/.alvo/
+
 # Sistema
 .DS_Store
 Thumbs.db
