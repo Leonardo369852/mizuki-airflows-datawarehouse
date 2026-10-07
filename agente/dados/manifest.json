@@ -43,5 +43,60 @@
     "otp_global": 79.9,
     "otp_com_data": 82.5,
     "atrasos_implausiveis": 1378
+  },
+  "fatos": {
+    "periodo": {
+      "inicio": "2025-08",
+      "fim": "2026-07",
+      "meses_completos": 12,
+      "parciais": [
+        {
+          "ano_mes": "2026-08",
+          "nome_mes": "ago/2026",
+          "dias": 1,
+          "voos": 17
+        }
+      ]
+    },
+    "otp_mensal": {
+      "min": 72.0,
+      "mes_min": "dez/2025",
+      "max": 85.9,
+      "mes_max": "ago/2025"
+    },
+    "aerodromos_sem_cadastro": {
+      "total": 85,
+      "estrangeiros": 79,
+      "brasileiros": 6,
+      "brasileiros_icao": [
+        "SBCR",
+        "SBIZ",
+        "SBUY",
+        "SDLO",
+        "SNCL",
+        "SSOU"
+      ],
+      "pct_partidas": 10.5
+    },
+    "fora_da_dim_aerodromo": {
+      "origens": 150,
+      "voos": 853
+    },
+    "otp_empresas": {
+      "nacionais": 81.8,
+      "estrangeiras": 67.2
+    },
+    "rotas_sem_distancia": {
+      "rotas": 1444,
+      "voos": 194987,
+      "pct_voos": 19.2
+    },
+    "municipios_com_varios_aerodromos": {
+      "RIO DE JANEIRO": [
+        "SBGL",
+        "SBJR",
+        "SBRJ"
+      ]
+    }
   }
 }

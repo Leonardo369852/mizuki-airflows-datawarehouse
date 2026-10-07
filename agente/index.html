@@ -686,102 +686,31 @@ const DUCKDB_VER = "1.32.0";
 const DUCKDB_ESM = `https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@${DUCKDB_VER}/+esm`;
 const DUCKDB_DIST = `https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@${DUCKDB_VER}/dist/`;
 
-/* Perguntas prontas: cada uma traz o plano escrito à mão, para funcionar sem LLM.
-   São também os exemplos que ensinam o visitante o que dá para perguntar. */
-const SUGESTOES = [
-  {
-    p: "Qual empresa tem a maior taxa de cancelamento?",
-    grafico: "barra_horizontal", x: "taxa", y: "empresa", unidade: "%",
-    titulo: "Taxa de cancelamento — empresas com 500+ voos programados",
-    sql: `SELECT e.nome AS empresa,
-       100.0 * SUM(f.cancelados) / SUM(f.voos) AS taxa,
-       SUM(f.voos) AS programados
-FROM fato_voos f JOIN dim_empresa e ON f.icao_empresa = e.icao_empresa
-GROUP BY e.nome
-HAVING SUM(f.voos) >= 500
-ORDER BY taxa DESC
-LIMIT 15`
-  },
-  {
-    p: "Como a pontualidade variou mês a mês?",
-    grafico: "linha", x: "mes", y: "otp", unidade: "%",
-    titulo: "OTP de partida por mês",
-    aviso: "Exclui os 30.800 voos sem data de partida prevista — sem horário previsto não há atraso a calcular.",
-    sql: `SELECT t.ano_mes AS mes,
-       100.0 * SUM(f.partidas_pontuais) / NULLIF(SUM(f.realizados), 0) AS otp,
-       SUM(f.realizados) AS realizados
-FROM fato_voos f JOIN dim_tempo t ON f.ano_mes = t.ano_mes
-WHERE t.ano_mes IS NOT NULL AND t.dias_com_voo > 5
-GROUP BY t.ano_mes, t.ordem
-ORDER BY t.ordem
-LIMIT 20`
-  },
-  {
-    p: "Sair de São Paulo é pior que chegar?",
-    grafico: "halteres", x: "saindo", y: "chegando", unidade: "%",
-    titulo: "OTP saindo de GRU/CGH contra chegando — mesmas rotas",
-    sql: `WITH sp AS (SELECT 'SBGR' AS icao UNION ALL SELECT 'SBSP'),
-saindo AS (
-  SELECT f.icao_destino AS ponta,
-         100.0 * SUM(f.partidas_pontuais) / NULLIF(SUM(f.realizados), 0) AS otp,
-         SUM(f.realizados) AS n
-  FROM fato_voos f WHERE f.icao_origem IN (SELECT icao FROM sp)
-  GROUP BY f.icao_destino),
-chegando AS (
-  SELECT f.icao_origem AS ponta,
-         100.0 * SUM(f.partidas_pontuais) / NULLIF(SUM(f.realizados), 0) AS otp,
-         SUM(f.realizados) AS n
-  FROM fato_voos f WHERE f.icao_destino IN (SELECT icao FROM sp)
-  GROUP BY f.icao_origem)
-SELECT a.rotulo AS rota, s.otp AS saindo, c.otp AS chegando
-FROM saindo s JOIN chegando c ON s.ponta = c.ponta
-JOIN dim_aerodromo a ON a.icao = s.ponta
-WHERE s.n >= 1500 AND c.n >= 1500
-ORDER BY (c.otp - s.otp) DESC
-LIMIT 14`
-  },
-  {
-    p: "Quais aeroportos movimentam mais?",
-    grafico: "mapa", x: "longitude", y: "latitude", unidade: "voos",
-    titulo: "Partidas por aeródromo",
-    sql: `SELECT a.icao, a.rotulo AS local, a.latitude, a.longitude,
-       SUM(f.voos) AS voos,
-       100.0 * SUM(f.partidas_pontuais) / NULLIF(SUM(f.realizados), 0) AS otp
-FROM fato_voos f JOIN dim_aerodromo a ON f.icao_origem = a.icao
-WHERE a.latitude IS NOT NULL
-GROUP BY a.icao, a.rotulo, a.latitude, a.longitude
-HAVING SUM(f.voos) >= 900
-ORDER BY voos DESC
-LIMIT 80`
-  },
-  {
-    p: "Nacionais atrasam menos que estrangeiras?",
-    grafico: "barra_vertical", x: "grupo", y: "atraso", unidade: "min",
-    titulo: "Atraso médio de partida, faixa plausível",
-    aviso: "Restrito a atrasos entre -60 e 1.440 min: a fonte tem timestamps invertidos que produzem médias impossíveis.",
-    sql: `SELECT CASE WHEN e.nacional THEN 'Nacionais' ELSE 'Estrangeiras' END AS grupo,
-       SUM(f.soma_atraso_plausivel) / NULLIF(SUM(f.com_atraso_plausivel), 0) AS atraso,
-       100.0 * SUM(f.partidas_pontuais) / NULLIF(SUM(f.realizados), 0) AS otp,
-       SUM(f.realizados) AS realizados
-FROM fato_voos f JOIN dim_empresa e ON f.icao_empresa = e.icao_empresa
-GROUP BY 1
-ORDER BY atraso DESC
-LIMIT 5`
-  },
-  {
-    p: "Vale a pena voar de madrugada?",
-    grafico: "barra_vertical", x: "periodo", y: "otp", unidade: "%",
-    titulo: "OTP de partida por período do dia",
-    sql: `SELECT f.periodo_partida AS periodo,
-       100.0 * SUM(f.partidas_pontuais) / NULLIF(SUM(f.realizados), 0) AS otp,
-       SUM(f.realizados) AS realizados
-FROM fato_voos f
-WHERE f.periodo_partida IS NOT NULL
-GROUP BY f.periodo_partida
-ORDER BY otp DESC
-LIMIT 6`
-  }
-];
+/* O que o agente sabe vem de conhecimento/ — os mesmos arquivos de que o Worker monta o prompt.
+   Antes, as perguntas prontas e o prompt do caminho sem Worker eram digitados aqui, e já
+   discordavam do Worker (este não sabia de marca nem de estado).
+
+   Perguntas prontas: cada uma traz o plano escrito à mão, com o SQL executado por
+   conhecimento/conferir.py, e responde sem LLM. São também os exemplos que ensinam o
+   visitante o que dá para perguntar. */
+let SUGESTOES = [];
+let CONHECIMENTO = null;
+
+async function carregarConhecimento() {
+  const ler = n => fetch(`conhecimento/${n}.json`).then(r => {
+    if (!r.ok) throw new Error(`conhecimento/${n}.json: HTTP ${r.status}`);
+    return r.json();
+  });
+  const [montar, semantica, identidade, exemplos, apelidos, fatos] = await Promise.all([
+    import("./conhecimento/montar.js"), ler("semantica"), ler("identidade"), ler("exemplos"),
+    ler("apelidos"), ler("fatos")
+  ]);
+  CONHECIMENTO = { montar, semantica, identidade, apelidos,
+                   exemplos: exemplos.exemplos, fatos: fatos.fatos };
+  SUGESTOES = CONHECIMENTO.exemplos.filter(e => e.chip)
+    .map(e => ({ p: e.pergunta, ...montar.planoDoExemplo(e, CONHECIMENTO.fatos) }));
+  return CONHECIMENTO;
+}
 
 const logEl = document.getElementById("log");
 const chipsEl = document.getElementById("chips");
@@ -920,7 +849,7 @@ async function pedirPlano(pergunta, signal, avisar, hist = historico) {
         ).join("\n")
     : "";
   const { text } = await sampleFn(
-    [{ role: "user", content: PROMPT_SQL + conversa + "\n\nPergunta: " + pergunta }],
+    [{ role: "user", content: promptSql() + conversa + "\n\nPergunta: " + pergunta }],
     { cache: false, signal, modelTier: "default" }
   );
   const bruto = text.replace(/^[^{]*/, "").replace(/[^}]*$/, "");
@@ -959,47 +888,25 @@ async function narrar(pergunta, plano, linhas, alvo, signal) {
   }
 
   const { text } = await sampleFn(
-    [{ role: "user", content: PROMPT_TEXTO + "\n\n" + JSON.stringify(carga) }],
+    [{ role: "user", content: promptTexto() + "\n\n" + JSON.stringify(carga) }],
     { cache: false, signal, modelTier: "default", onText: ({ text }) => { fala(alvo, text); aoFundo(); } }
   );
   return text;
 }
 
 /* Prompts só para o caminho sem Worker (dentro do Claude). Com Worker eles moram no
-   servidor — se viessem do cliente, o endpoint seria um relay de LLM aberto. */
-const PROMPT_SQL = `Traduza a pergunta em UMA consulta DuckDB e devolva SÓ um objeto JSON com
-as chaves sql, grafico, x, y, unidade, titulo, aviso.
+   servidor — se viessem do cliente, o endpoint seria um relay de LLM aberto. Os dois
+   caminhos montam o texto dos mesmos arquivos de conhecimento/. */
+function promptSql() {
+  return CONHECIMENTO.montar.promptConsulta(CONHECIMENTO)
+    + "\nDevolva SÓ um objeto JSON com as chaves tipo, resposta, sql, grafico, x, y, serie, "
+    + "unidade, titulo, aviso.";
+}
 
-Tabelas: fato_voos(ano_mes, icao_empresa, icao_origem, icao_destino, situacao_voo,
-periodo_partida, fim_de_semana, codigo_tipo_linha, voos, realizados, cancelados,
-partidas_pontuais, chegadas_pontuais, partidas_atrasadas, partidas_severas,
-com_atraso_partida, soma_atraso_partida, com_atraso_chegada, soma_atraso_chegada,
-com_duracao, soma_duracao, com_atraso_plausivel, soma_atraso_plausivel) — TODAS as medidas
-são aditivas, agregue com SUM, NUNCA com AVG;
-dim_empresa(icao_empresa, nome, iata, servico, origem_cadastro, situacao, voos_no_periodo, nacional);
-dim_aerodromo(icao, nome, municipio, uf, rotulo, latitude, longitude, partidas, chegadas)
-— use SEMPRE rotulo para nomear aeroporto: municipio e nome sao NULL em 85 dos 224
-(estrangeiros e 6 brasileiros fora do cadastro), 10,5% das partidas;
-dim_rota(icao_origem, icao_destino, distancia_km, faixa_distancia, origem_igual_destino, voos);
-dim_tempo(ano_mes, ano, mes, nome_mes, trimestre, estacao, dias_com_voo, voos, ordem).
-
-OTP = 100.0*SUM(partidas_pontuais)/NULLIF(SUM(realizados),0). Pontual = atraso <= 15 min.
-Cancelamento = 100.0*SUM(cancelados)/NULLIF(SUM(voos),0).
-Atraso médio = SUM(soma_atraso_partida)/NULLIF(SUM(com_atraso_partida),0).
-
-Problemas da fonte: ano_mes IS NULL em 30.800 voos (filtre em pergunta geral de pontualidade
-e diga que filtrou); atrasos implausíveis — em ranking de atraso use soma_atraso_plausivel;
-dim_rota.origem_igual_destino marca rotas de 0 km; em ranking filtre HAVING SUM(realizados)>=500;
-o motivo dos cancelamentos não existe na fonte.
-
-Um único SELECT, sempre com LIMIT <= 100. grafico é um de: barra_horizontal, barra_vertical,
-linha, dispersao, halteres, mapa, tabela. x e y são apelidos do SELECT. unidade é %, min, voos, km ou "".`;
-
-const PROMPT_TEXTO = `Você é analista de dados do setor aéreo. Recebe um JSON com a pergunta, o SQL
-executado e as linhas que voltaram. Responda em português do Brasil, no máximo 4 frases,
-começando pela resposta. Cite números com unidade e formato brasileiro (vírgula decimal, ponto
-de milhar). Use SÓ números presentes nas linhas — nunca estime nem complete. Se vier "aviso",
-incorpore numa frase. Sem saudação, sem repetir a pergunta.`;
+function promptTexto() {
+  return CONHECIMENTO.montar.promptNarracao(CONHECIMENTO)
+    + "\nVocê recebe um JSON com a pergunta, o SQL executado e as linhas que voltaram.";
+}
 
 /* --------------------------------------------------------------------------
    Gráficos genéricos — uma série, azul; rótulos diretos em todos
@@ -1602,15 +1509,25 @@ function estado(txt) {
   loadbar.hidden = true;
   estado(temLLM ? "" : "só perguntas prontas");
 
+  let conhecimentoOk = true;
+  try {
+    await carregarConhecimento();
+  } catch (e) {
+    conhecimentoOk = false;
+    console.error("conhecimento:", e);
+  }
+
   SUGESTOES.forEach(s => {
     const b = document.createElement("button");
     b.type = "button"; b.className = "chip"; b.textContent = s.p;
     b.addEventListener("click", () => ask(s.p, s));
     chipsEl.appendChild(b);
   });
-  chipsEl.hidden = false;
+  chipsEl.hidden = !SUGESTOES.length;
 
-  footEl.textContent = temLLM
+  footEl.textContent = !conhecimentoOk
+    ? "As perguntas prontas não carregaram. Recarregue a página para tentar de novo."
+    : temLLM
     ? "O modelo escreve o SQL; a consulta roda aqui, no seu navegador. "
       + "As perguntas prontas respondem na hora, sem chamar o modelo."
     : "As perguntas prontas rodam SQL de verdade no seu navegador. "

@@ -1,0 +1,31 @@
+{
+  "sobre": "Sinônimos que as dimensões não têm. O roteador soma isto ao dicionário que monta das próprias dimensões na carga (uf, estado, município, rótulo, ICAO, marca, nome, nome_mes). Fonte 'pedido': lista do dono do projeto. Fonte 'base': o apelido aparece no nome ou no município daquele aeródromo — conferir.py prova. Fonte 'iata': código IATA público, que a base não traz — [A CONFIRMAR]. Ficou de fora, de propósito, o que colide com palavra comum do português (FOR, de Fortaleza, é o 'for' de 'se for').",
+  "aerodromos": [
+    { "icao": "SBGR", "apelidos": ["gru", "cumbica"], "fonte": "pedido" },
+    { "icao": "SBSP", "apelidos": ["cgh", "congonhas"], "fonte": "pedido" },
+    { "icao": "SBKP", "apelidos": ["vcp", "viracopos"], "fonte": "pedido" },
+    { "icao": "SBRJ", "apelidos": ["santos dumont"], "fonte": "base" },
+    { "icao": "SBGL", "apelidos": ["galeao"], "fonte": "base" },
+    { "icao": "SBBH", "apelidos": ["pampulha"], "fonte": "base" },
+    { "icao": "SBCF", "apelidos": ["tancredo neves"], "fonte": "base" },
+    { "icao": "SBPA", "apelidos": ["salgado filho"], "fonte": "base" },
+    { "icao": "SBRF", "apelidos": ["guararapes"], "fonte": "base" },
+    { "icao": "SBFL", "apelidos": ["hercilio luz"], "fonte": "base" },
+    { "icao": "SBRJ", "apelidos": ["sdu"], "fonte": "iata" },
+    { "icao": "SBGL", "apelidos": ["gig"], "fonte": "iata" },
+    { "icao": "SBCF", "apelidos": ["cnf"], "fonte": "iata" },
+    { "icao": "SBBH", "apelidos": ["plu"], "fonte": "iata" },
+    { "icao": "SBBR", "apelidos": ["bsb"], "fonte": "iata" },
+    { "icao": "SBPA", "apelidos": ["poa"], "fonte": "iata" },
+    { "icao": "SBSV", "apelidos": ["ssa"], "fonte": "iata" },
+    { "icao": "SBRF", "apelidos": ["rec"], "fonte": "iata" },
+    { "icao": "SBCT", "apelidos": ["cwb"], "fonte": "iata" },
+    { "icao": "SBFL", "apelidos": ["fln"], "fonte": "iata" }
+  ],
+  "marcas": [
+    { "marca": "LATAM", "apelidos": ["latam"], "fonte": "pedido" }
+  ],
+  "estados": [
+    { "uf": "MG", "apelidos": ["minas"], "fonte": "base" }
+  ]
+}

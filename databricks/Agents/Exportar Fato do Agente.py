@@ -382,9 +382,10 @@ print(pdf_tempo[["ano_mes", "dias_com_voo", "voos"]].to_string(index=False))
 
 # DBTITLE 1,Manifest — o que a página precisa saber sobre o export
 # MAGIC %md
-# MAGIC O manifest carrega contagens, tamanhos e as **definições das métricas**. A página mostra
-# MAGIC "dados gerados em X" a partir dele, e ele é a prova de que os números da página vêm de
-# MAGIC uma execução datada e não de digitação manual.
+# MAGIC O manifest carrega contagens, tamanhos, as **definições das métricas** e os **fatos** que o
+# MAGIC agente cita (período, faixa de pontualidade, ressalvas). A página mostra "dados gerados em
+# MAGIC X" a partir dele, e ele é a prova de que os números da página e do agente vêm de uma
+# MAGIC execução datada e não de digitação manual.
 
 # COMMAND ----------
 
@@ -405,6 +406,61 @@ SELECT
              OR atraso_partida_min > {ATRASO_MAX_PLAUSIVEL} THEN 1 ELSE 0 END) AS atrasos_implausiveis
 FROM mizukiairflows.gold.obt_voos
 """).collect()[0].asDict()
+
+# Fatos que o agente cita, calculados sobre o que acabou de ser EXPORTADO. O prompt já trouxe
+# um período digitado à mão (set/2025 a ago/2026) que não era o dos dados: daqui em diante,
+# período, faixa de pontualidade e ressalvas mudam sozinhos quando o export muda. O mesmo
+# cálculo roda em agente/conhecimento/conferir.py, sobre os Parquet, e os dois têm de bater.
+meses = pdf_tempo[pdf_tempo["ano_mes"].notna()].sort_values("ordem")
+completos = meses[meses["dias_com_voo"] >= 28]
+nome_do_mes = dict(zip(meses["ano_mes"], meses["nome_mes"]))
+
+def otp(d):
+    return round(100.0 * float(d["partidas_pontuais"].sum()) / float(d["realizados"].sum()), 1)
+
+otp_por_mes = {m: otp(g) for m, g in
+               pdf_fato[pdf_fato["ano_mes"].isin(completos["ano_mes"])].groupby("ano_mes")}
+mes_min, mes_max = min(otp_por_mes, key=otp_por_mes.get), max(otp_por_mes, key=otp_por_mes.get)
+
+sem_cadastro = pdf_aero[pdf_aero["uf"].isna()]
+icao_brasileiros = sorted(sem_cadastro.loc[sem_cadastro["icao"].str.match(r"^S[BDIJNSW]"), "icao"])
+partidas_por_origem = pdf_fato.groupby("icao_origem")["voos"].sum()
+na_dim = partidas_por_origem[partidas_por_origem.index.isin(pdf_aero["icao"])]
+fora_da_dim = partidas_por_origem[~partidas_por_origem.index.isin(pdf_aero["icao"])]
+com_empresa = pdf_fato.merge(emp[["icao_empresa", "nacional"]], on="icao_empresa")
+sem_distancia = pdf_rota[pdf_rota["distancia_km"].isna()]
+por_municipio = pdf_aero[pdf_aero["municipio"].notna()].groupby("municipio")["icao"].apply(sorted)
+
+fatos = {
+    "periodo": {
+        "inicio": meses["ano_mes"].iloc[0],
+        "fim": completos["ano_mes"].iloc[-1],
+        "meses_completos": int(len(completos)),
+        "parciais": [{"ano_mes": r.ano_mes, "nome_mes": r.nome_mes, "dias": int(r.dias_com_voo),
+                      "voos": int(r.voos)} for r in meses[meses["dias_com_voo"] < 28].itertuples()],
+    },
+    "otp_mensal": {"min": otp_por_mes[mes_min], "mes_min": nome_do_mes[mes_min],
+                   "max": otp_por_mes[mes_max], "mes_max": nome_do_mes[mes_max]},
+    "aerodromos_sem_cadastro": {
+        "total": int(len(sem_cadastro)),
+        "estrangeiros": int(len(sem_cadastro) - len(icao_brasileiros)),
+        "brasileiros": int(len(icao_brasileiros)),
+        "brasileiros_icao": icao_brasileiros,
+        "pct_partidas": round(100.0 * float(na_dim[na_dim.index.isin(sem_cadastro["icao"])].sum())
+                              / float(na_dim.sum()), 1),
+    },
+    "fora_da_dim_aerodromo": {"origens": int(len(fora_da_dim)), "voos": int(fora_da_dim.sum())},
+    "otp_empresas": {"nacionais": otp(com_empresa[com_empresa["nacional"] == True]),
+                     "estrangeiras": otp(com_empresa[com_empresa["nacional"] == False])},
+    # Rota sem coordenada não tem distância: média de distância que conta esses voos no
+    # denominador sai ~20% abaixo da verdadeira, sem erro nenhum aparecendo.
+    "rotas_sem_distancia": {
+        "rotas": int(len(sem_distancia)), "voos": int(sem_distancia["voos"].sum()),
+        "pct_voos": round(100.0 * float(sem_distancia["voos"].sum()) / float(pdf_rota["voos"].sum()), 1),
+    },
+    # "rotulo" é o município: agrupar por ele funde aeroportos da mesma cidade.
+    "municipios_com_varios_aerodromos": {m: list(i) for m, i in por_municipio.items() if len(i) > 1},
+}
 
 from datetime import datetime, timezone
 
@@ -428,6 +484,7 @@ manifest = {
         "faixa_plausivel": [ATRASO_MIN_PLAUSIVEL, ATRASO_MAX_PLAUSIVEL],
     },
     "qualidade": {k: (int(v) if isinstance(v, (int, bool)) else v) for k, v in qualidade.items()},
+    "fatos": fatos,
 }
 
 caminho_manifest = f"{DIR_SAIDA}/manifest.json"

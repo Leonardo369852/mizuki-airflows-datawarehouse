@@ -1,0 +1,302 @@
+{
+  "sobre": "Pares pergunta → plano, no formato que o /consulta devolve. Os marcados chip aparecem como perguntas prontas na página e respondem sem IA; os demais ensinam o modelo os padrões em que ele já errou (uf é sigla, marca em vez de razão social, nome popular de aeroporto, distância com NULL, mês parcial, pergunta fora do grão). Todo SQL é executado por conferir.py. São diferentes, de propósito, das perguntas de agente/avaliacao/: a avaliação mede generalização, não decoreba. Número entre chaves vem de fatos.json.",
+  "exemplos": [
+    {
+      "pergunta": "Qual empresa tem a maior taxa de cancelamento?",
+      "chip": true,
+      "plano": {
+        "tipo": "consulta", "grafico": "barra_horizontal", "x": "taxa", "y": "empresa", "unidade": "%",
+        "titulo": "Taxa de cancelamento — empresas com 500+ voos programados", "aviso": "",
+        "sql": [
+          "SELECT e.nome AS empresa,",
+          "       100.0 * SUM(f.cancelados) / SUM(f.voos) AS taxa,",
+          "       SUM(f.voos) AS programados",
+          "FROM fato_voos f JOIN dim_empresa e ON f.icao_empresa = e.icao_empresa",
+          "GROUP BY e.nome",
+          "HAVING SUM(f.voos) >= 500",
+          "ORDER BY taxa DESC",
+          "LIMIT 15"
+        ]
+      }
+    },
+    {
+      "pergunta": "Como a pontualidade variou mês a mês?",
+      "chip": true,
+      "plano": {
+        "tipo": "consulta", "grafico": "linha", "x": "mes", "y": "otp", "unidade": "%",
+        "titulo": "OTP de partida por mês",
+        "aviso": "Só meses completos, e sem os {sem_data_voos} voos sem data de partida prevista — sem horário previsto não há atraso a calcular.",
+        "sql": [
+          "SELECT t.nome_mes AS mes,",
+          "       100.0 * SUM(f.partidas_pontuais) / NULLIF(SUM(f.realizados), 0) AS otp,",
+          "       SUM(f.realizados) AS realizados",
+          "FROM fato_voos f JOIN dim_tempo t ON f.ano_mes = t.ano_mes",
+          "WHERE t.dias_com_voo >= 28",
+          "GROUP BY t.nome_mes, t.ordem",
+          "ORDER BY t.ordem",
+          "LIMIT 20"
+        ]
+      }
+    },
+    {
+      "pergunta": "Sair de São Paulo é pior que chegar?",
+      "chip": true,
+      "plano": {
+        "tipo": "consulta", "grafico": "halteres", "x": "saindo", "y": "chegando", "unidade": "%",
+        "titulo": "OTP saindo de GRU/CGH contra chegando — mesmas rotas", "aviso": "",
+        "sql": [
+          "WITH sp AS (SELECT 'SBGR' AS icao UNION ALL SELECT 'SBSP'),",
+          "saindo AS (",
+          "  SELECT f.icao_destino AS ponta,",
+          "         100.0 * SUM(f.partidas_pontuais) / NULLIF(SUM(f.realizados), 0) AS otp,",
+          "         SUM(f.realizados) AS n",
+          "  FROM fato_voos f WHERE f.icao_origem IN (SELECT icao FROM sp)",
+          "  GROUP BY f.icao_destino),",
+          "chegando AS (",
+          "  SELECT f.icao_origem AS ponta,",
+          "         100.0 * SUM(f.partidas_pontuais) / NULLIF(SUM(f.realizados), 0) AS otp,",
+          "         SUM(f.realizados) AS n",
+          "  FROM fato_voos f WHERE f.icao_destino IN (SELECT icao FROM sp)",
+          "  GROUP BY f.icao_origem)",
+          "SELECT a.rotulo AS rota, s.otp AS saindo, c.otp AS chegando",
+          "FROM saindo s JOIN chegando c ON s.ponta = c.ponta",
+          "JOIN dim_aerodromo a ON a.icao = s.ponta",
+          "WHERE s.n >= 1500 AND c.n >= 1500",
+          "ORDER BY (c.otp - s.otp) DESC",
+          "LIMIT 14"
+        ]
+      }
+    },
+    {
+      "pergunta": "Quais aeroportos movimentam mais?",
+      "chip": true,
+      "plano": {
+        "tipo": "consulta", "grafico": "mapa", "x": "longitude", "y": "latitude", "unidade": "voos",
+        "titulo": "Partidas por aeródromo", "aviso": "",
+        "sql": [
+          "SELECT a.icao, a.rotulo AS local, a.latitude, a.longitude,",
+          "       SUM(f.voos) AS voos,",
+          "       100.0 * SUM(f.partidas_pontuais) / NULLIF(SUM(f.realizados), 0) AS otp",
+          "FROM fato_voos f JOIN dim_aerodromo a ON f.icao_origem = a.icao",
+          "WHERE a.latitude IS NOT NULL",
+          "GROUP BY a.icao, a.rotulo, a.latitude, a.longitude",
+          "HAVING SUM(f.voos) >= 900",
+          "ORDER BY voos DESC",
+          "LIMIT 80"
+        ]
+      }
+    },
+    {
+      "pergunta": "Nacionais atrasam menos que estrangeiras?",
+      "chip": true,
+      "plano": {
+        "tipo": "consulta", "grafico": "barra_vertical", "x": "grupo", "y": "atraso", "unidade": "min",
+        "titulo": "Atraso médio de partida, faixa plausível",
+        "aviso": "Restrito a atrasos entre {faixa_min} e {faixa_max} min: a fonte tem timestamps invertidos que produzem médias impossíveis.",
+        "sql": [
+          "SELECT CASE WHEN e.nacional THEN 'Nacionais' ELSE 'Estrangeiras' END AS grupo,",
+          "       SUM(f.soma_atraso_plausivel) / NULLIF(SUM(f.com_atraso_plausivel), 0) AS atraso,",
+          "       100.0 * SUM(f.partidas_pontuais) / NULLIF(SUM(f.realizados), 0) AS otp,",
+          "       SUM(f.realizados) AS realizados",
+          "FROM fato_voos f JOIN dim_empresa e ON f.icao_empresa = e.icao_empresa",
+          "GROUP BY 1",
+          "ORDER BY atraso DESC",
+          "LIMIT 5"
+        ]
+      }
+    },
+    {
+      "pergunta": "Vale a pena voar de madrugada?",
+      "chip": true,
+      "plano": {
+        "tipo": "consulta", "grafico": "barra_vertical", "x": "periodo", "y": "otp", "unidade": "%",
+        "titulo": "OTP de partida por período do dia", "aviso": "",
+        "sql": [
+          "SELECT f.periodo_partida AS periodo,",
+          "       100.0 * SUM(f.partidas_pontuais) / NULLIF(SUM(f.realizados), 0) AS otp,",
+          "       SUM(f.realizados) AS realizados",
+          "FROM fato_voos f",
+          "WHERE f.periodo_partida IS NOT NULL",
+          "GROUP BY f.periodo_partida",
+          "ORDER BY otp DESC",
+          "LIMIT 6"
+        ]
+      }
+    },
+    {
+      "pergunta": "Quais aeroportos do Paraná têm mais partidas?",
+      "plano": {
+        "tipo": "consulta", "grafico": "barra_horizontal", "x": "partidas", "y": "aeroporto", "unidade": "voos",
+        "titulo": "Partidas por aeroporto — Paraná", "aviso": "",
+        "sql": [
+          "SELECT a.rotulo AS aeroporto, SUM(f.voos) AS partidas",
+          "FROM fato_voos f JOIN dim_aerodromo a ON f.icao_origem = a.icao",
+          "WHERE a.uf = 'PR'",
+          "GROUP BY a.icao, a.rotulo",
+          "ORDER BY partidas DESC",
+          "LIMIT 20"
+        ]
+      }
+    },
+    {
+      "pergunta": "Quantos voos a Azul fez?",
+      "plano": {
+        "tipo": "consulta", "grafico": "barra_horizontal", "x": "voos", "y": "empresa", "unidade": "voos",
+        "titulo": "Voos da marca Azul, por operadora", "aviso": "A marca AZUL soma a Azul e a Azul Conecta.",
+        "sql": [
+          "SELECT e.nome AS empresa, SUM(f.voos) AS voos",
+          "FROM fato_voos f JOIN dim_empresa e ON f.icao_empresa = e.icao_empresa",
+          "WHERE e.marca = 'AZUL'",
+          "GROUP BY e.nome",
+          "ORDER BY voos DESC",
+          "LIMIT 10"
+        ]
+      }
+    },
+    {
+      "pergunta": "Qual a pontualidade da Azul?",
+      "plano": {
+        "tipo": "consulta", "grafico": "tabela", "x": "realizados", "y": "otp", "unidade": "%",
+        "titulo": "OTP de partida da Azul (Azul e Azul Conecta)",
+        "aviso": "Sem os voos sem data de partida prevista, que não podem ser pontuais.",
+        "sql": [
+          "SELECT 100.0 * SUM(f.partidas_pontuais) / NULLIF(SUM(f.realizados), 0) AS otp,",
+          "       SUM(f.realizados) AS realizados",
+          "FROM fato_voos f JOIN dim_empresa e ON f.icao_empresa = e.icao_empresa",
+          "WHERE e.marca = 'AZUL' AND f.ano_mes IS NOT NULL",
+          "LIMIT 1"
+        ]
+      }
+    },
+    {
+      "pergunta": "Como foi a pontualidade de Viracopos mês a mês?",
+      "plano": {
+        "tipo": "consulta", "grafico": "linha", "x": "mes", "y": "otp", "unidade": "%",
+        "titulo": "OTP de partida em Viracopos (Campinas), por mês", "aviso": "Só meses completos.",
+        "sql": [
+          "SELECT t.nome_mes AS mes,",
+          "       100.0 * SUM(f.partidas_pontuais) / NULLIF(SUM(f.realizados), 0) AS otp",
+          "FROM fato_voos f",
+          "JOIN dim_aerodromo a ON f.icao_origem = a.icao",
+          "JOIN dim_tempo t ON f.ano_mes = t.ano_mes",
+          "WHERE strip_accents(upper(a.nome)) LIKE '%VIRACOPOS%' AND t.dias_com_voo >= 28",
+          "GROUP BY t.nome_mes, t.ordem",
+          "ORDER BY t.ordem",
+          "LIMIT 20"
+        ]
+      }
+    },
+    {
+      "pergunta": "Quais rotas saindo de Guarulhos têm mais voos?",
+      "plano": {
+        "tipo": "consulta", "grafico": "barra_horizontal", "x": "voos", "y": "destino", "unidade": "voos",
+        "titulo": "Destinos com mais voos saindo de Guarulhos", "aviso": "",
+        "sql": [
+          "SELECT d.rotulo || ' (' || d.icao || ')' AS destino, SUM(f.voos) AS voos",
+          "FROM fato_voos f",
+          "JOIN dim_aerodromo o ON f.icao_origem = o.icao",
+          "JOIN dim_aerodromo d ON f.icao_destino = d.icao",
+          "WHERE strip_accents(upper(o.municipio)) = 'GUARULHOS'",
+          "GROUP BY d.icao, d.rotulo",
+          "ORDER BY voos DESC",
+          "LIMIT 15"
+        ]
+      }
+    },
+    {
+      "pergunta": "Quais empresas atrasam mais?",
+      "plano": {
+        "tipo": "consulta", "grafico": "barra_horizontal", "x": "atraso", "y": "empresa", "unidade": "min",
+        "titulo": "Atraso médio de partida — empresas com 500+ voos realizados",
+        "aviso": "Só atrasos entre {faixa_min} e {faixa_max} min: a fonte tem horários invertidos que produzem médias impossíveis.",
+        "sql": [
+          "SELECT COALESCE(e.nome, e.icao_empresa) AS empresa,",
+          "       SUM(f.soma_atraso_plausivel) / NULLIF(SUM(f.com_atraso_plausivel), 0) AS atraso,",
+          "       SUM(f.realizados) AS realizados",
+          "FROM fato_voos f JOIN dim_empresa e ON f.icao_empresa = e.icao_empresa",
+          "GROUP BY e.icao_empresa, e.nome",
+          "HAVING SUM(f.realizados) >= 500",
+          "ORDER BY atraso DESC",
+          "LIMIT 15"
+        ]
+      }
+    },
+    {
+      "pergunta": "Quais as rotas mais longas?",
+      "plano": {
+        "tipo": "consulta", "grafico": "barra_horizontal", "x": "km", "y": "rota", "unidade": "km",
+        "titulo": "Rotas mais longas, entre as que têm coordenadas",
+        "aviso": "Rota sem coordenada não tem distância na fonte e fica de fora.",
+        "sql": [
+          "SELECT o.rotulo || ' → ' || d.rotulo AS rota, r.distancia_km AS km, r.voos AS voos",
+          "FROM dim_rota r",
+          "JOIN dim_aerodromo o ON r.icao_origem = o.icao",
+          "JOIN dim_aerodromo d ON r.icao_destino = d.icao",
+          "WHERE r.distancia_km IS NOT NULL AND NOT r.origem_igual_destino",
+          "ORDER BY km DESC",
+          "LIMIT 10"
+        ]
+      }
+    },
+    {
+      "pergunta": "Quantos voos foram cancelados em março de 2026?",
+      "plano": {
+        "tipo": "consulta", "grafico": "tabela", "x": "cancelados", "y": "taxa", "unidade": "voos",
+        "titulo": "Cancelamentos em mar/2026", "aviso": "",
+        "sql": [
+          "SELECT SUM(f.cancelados) AS cancelados,",
+          "       100.0 * SUM(f.cancelados) / NULLIF(SUM(f.voos), 0) AS taxa",
+          "FROM fato_voos f JOIN dim_tempo t ON f.ano_mes = t.ano_mes",
+          "WHERE t.nome_mes = 'mar/2026'",
+          "LIMIT 1"
+        ]
+      }
+    },
+    {
+      "pergunta": "Qual a taxa de cancelamento por mês?",
+      "plano": {
+        "tipo": "consulta", "grafico": "linha", "x": "mes", "y": "taxa", "unidade": "%",
+        "titulo": "Taxa de cancelamento por mês", "aviso": "Só meses completos.",
+        "sql": [
+          "SELECT t.nome_mes AS mes,",
+          "       100.0 * SUM(f.cancelados) / NULLIF(SUM(f.voos), 0) AS taxa",
+          "FROM fato_voos f JOIN dim_tempo t ON f.ano_mes = t.ano_mes",
+          "WHERE t.dias_com_voo >= 28",
+          "GROUP BY t.nome_mes, t.ordem",
+          "ORDER BY t.ordem",
+          "LIMIT 20"
+        ]
+      }
+    },
+    {
+      "pergunta": "Quais estados têm mais partidas?",
+      "plano": {
+        "tipo": "consulta", "grafico": "barra_horizontal", "x": "partidas", "y": "estado", "unidade": "voos",
+        "titulo": "Partidas por estado",
+        "aviso": "Aeródromos sem cadastro na ANAC (estrangeiros, sobretudo) não têm estado e ficam de fora.",
+        "sql": [
+          "SELECT a.estado AS estado, SUM(f.voos) AS partidas",
+          "FROM fato_voos f JOIN dim_aerodromo a ON f.icao_origem = a.icao",
+          "WHERE a.uf IS NOT NULL",
+          "GROUP BY a.uf, a.estado",
+          "ORDER BY partidas DESC",
+          "LIMIT 27"
+        ]
+      }
+    },
+    {
+      "pergunta": "Por que os voos da GOL foram cancelados?",
+      "plano": {
+        "tipo": "conversa",
+        "resposta": "O motivo não existe na fonte: a justificativa de cancelamento está vazia em todos os {cancelados} cancelamentos. Dá para ver quantos voos da GOL foram cancelados, e em que meses, mas não o porquê."
+      }
+    },
+    {
+      "pergunta": "Quantos voos teve na véspera de Natal?",
+      "plano": {
+        "tipo": "conversa",
+        "resposta": "Não tenho corte por dia: a base é agregada por mês. Posso mostrar o total de dezembro de 2025 ou comparar dia útil com fim de semana."
+      }
+    }
+  ]
+}

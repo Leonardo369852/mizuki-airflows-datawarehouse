@@ -1,0 +1,139 @@
+{
+  "sobre": "Camada semântica do agente: o que cada tabela e coluna significa, as fórmulas certas e o que a fonte esconde. É a parte que decide se o agente acerta ou inventa — não basta listar colunas, é preciso dizer o que NÃO fazer com elas. Número entre chaves ({voos}) vem de fatos.json, que é gerado do manifest do export: aqui não se digita número de dado. O Worker monta o prompt do /consulta com montar.js; conferir.py prova que toda coluna citada existe.",
+  "banco": "Banco DuckDB em memória com cinco tabelas sobre voos comerciais brasileiros (dados abertos VRA da ANAC, {periodo}, {voos} voos). {periodo_parcial}",
+  "tabelas": [
+    {
+      "nome": "fato_voos",
+      "descricao": "agregada, uma linha por combinação de chaves",
+      "colunas": [
+        ["ano_mes", "TEXT", "'AAAA-MM'. NULL em {sem_data_voos} voos sem data de partida prevista."],
+        ["icao_empresa", "TEXT", "junta com dim_empresa.icao_empresa"],
+        ["icao_origem", "TEXT", "junta com dim_aerodromo.icao"],
+        ["icao_destino", "TEXT", "junta com dim_aerodromo.icao"],
+        ["situacao_voo", "TEXT", "'REALIZADO' | 'CANCELADO'"],
+        ["periodo_partida", "TEXT", "'madrugada' | 'manha' | 'tarde' | 'noite' (NULL sem horário)"],
+        ["fim_de_semana", "BOOL", "NULL nos voos sem data"],
+        ["codigo_tipo_linha", "TEXT", "junta com nada; 'N' nacional, 'I' internacional, entre outros"]
+      ],
+      "medidas": ["voos", "realizados", "cancelados", "partidas_pontuais", "chegadas_pontuais",
+                  "partidas_atrasadas", "partidas_severas", "com_atraso_partida", "soma_atraso_partida",
+                  "com_atraso_chegada", "soma_atraso_chegada", "com_duracao", "soma_duracao",
+                  "com_atraso_plausivel", "soma_atraso_plausivel"]
+    },
+    {
+      "nome": "dim_empresa",
+      "colunas": [
+        ["icao_empresa", "TEXT"], ["nome", "TEXT"], ["iata", "TEXT"], ["servico", "TEXT"],
+        ["origem_cadastro", "TEXT"], ["situacao", "TEXT"], ["voos_no_periodo", "BIGINT"],
+        ["nacional", "BOOL"], ["marca", "TEXT"]
+      ],
+      "notas": [
+        "\"nome\" é a RAZÃO SOCIAL, e ela esconde a marca: a LATAM Brasil é 'TAM LINHAS AÉREAS S.A.'.",
+        "Para LATAM, GOL ou AZUL filtre SEMPRE por marca: e.marca = 'LATAM'. Nunca por nome — o nome com LATAM é o da LATAM chilena, e o total sairia plausível e errado.",
+        "A marca agrupa as operadoras do grupo (LATAM: Brasil, Chile, Peru, Equador; AZUL: Azul e Azul Conecta); some AND e.nacional para só a brasileira, e diga no aviso quais entraram.",
+        "Para as demais empresas, marca é NULL: busque por nome, normalizado como na regra de texto abaixo."
+      ]
+    },
+    {
+      "nome": "dim_aerodromo",
+      "colunas": [
+        ["icao", "TEXT"], ["nome", "TEXT"], ["municipio", "TEXT"], ["uf", "TEXT"], ["estado", "TEXT"],
+        ["rotulo", "TEXT"], ["latitude", "DOUBLE"], ["longitude", "DOUBLE"], ["partidas", "BIGINT"],
+        ["chegadas", "BIGINT"]
+      ],
+      "notas": [
+        "Use SEMPRE \"rotulo\" para nomear um aeroporto — ver problema 6. Agrupe por icao e mostre o rotulo: o rotulo é o município, e uma cidade pode ter mais de um aeroporto ({municipios_com_varios_aerodromos}).",
+        "uf é a SIGLA: 'SP', 'MG', 'RJ'. estado é o nome por extenso: 'São Paulo'. Para estado, filtre por uf = 'SP' — é exato e não depende de acento.",
+        "municipio está em MAIÚSCULAS e com acento: 'SÃO PAULO', 'BELO HORIZONTE', 'CONFINS'.",
+        "\"São Paulo\" sem qualificação é o estado (uf = 'SP'); diga no aviso que foi o estado.",
+        "Para a cidade, os aeroportos ficam em mais de um município: São Paulo são 'SÃO PAULO' e 'GUARULHOS'; Belo Horizonte são 'BELO HORIZONTE' e 'CONFINS'.",
+        "Aeroporto pelo nome popular (Congonhas, Viracopos, Galeão, Santos Dumont) se busca no nome: strip_accents(upper(a.nome)) LIKE '%CONGONHAS%'."
+      ]
+    },
+    {
+      "nome": "dim_rota",
+      "colunas": [
+        ["icao_origem", "TEXT"], ["icao_destino", "TEXT"], ["distancia_km", "DOUBLE"],
+        ["faixa_distancia", "TEXT"], ["origem_igual_destino", "BOOL"], ["voos", "BIGINT"]
+      ],
+      "notas": [
+        "distancia_km é NULL nas {rotas_sem_distancia} rotas sem coordenada, que somam {rotas_sem_distancia_pct}% dos voos. Em média de distância, filtre distancia_km IS NOT NULL: senão esses voos entram no denominador sem nada no numerador, e a média sai baixa e plausível.",
+        "faixa_distancia: 'Curta (<500km)', 'Media (500-1500km)', 'Longa (1500-3000km)', 'Extra-longa (>3000km)', 'Sem coordenadas'."
+      ]
+    },
+    {
+      "nome": "dim_tempo",
+      "colunas": [
+        ["ano_mes", "TEXT"], ["ano", "INT"], ["mes", "INT"], ["nome_mes", "TEXT"], ["trimestre", "INT"],
+        ["estacao", "TEXT"], ["primeiro_dia", "DATE"], ["ultimo_dia", "DATE"], ["dias_com_voo", "INT"],
+        ["voos", "BIGINT"], ["ordem", "INT"]
+      ],
+      "notas": [
+        "nome_mes é o rótulo pronto em português, único por linha: 'ago/2025', 'set/2025'. Use ele no eixo e ordene por \"ordem\". Para comparar o mesmo mês entre anos, use \"mes\".",
+        "A linha com ano_mes NULL é o marcador dos voos sem data prevista, e nome_mes nela é NULL."
+      ]
+    }
+  ],
+  "metricas": [
+    {
+      "nome": "OTP de partida (pontualidade, a métrica nº 1 do setor)",
+      "formula": "100.0 * SUM(partidas_pontuais) / NULLIF(SUM(realizados), 0)",
+      "nota": "Pontual = atraso <= 15 min (padrão ANAC/IATA). Cancelado NÃO entra no denominador: voo que não saiu não pode ser pontual nem atrasado."
+    },
+    {
+      "nome": "Taxa de cancelamento",
+      "formula": "100.0 * SUM(cancelados) / NULLIF(SUM(voos), 0)"
+    },
+    {
+      "nome": "Atraso médio de partida, em minutos",
+      "formula": "SUM(soma_atraso_partida) / NULLIF(SUM(com_atraso_partida), 0)"
+    },
+    {
+      "nome": "Duração média do voo, em minutos",
+      "formula": "SUM(soma_duracao) / NULLIF(SUM(com_duracao), 0)"
+    }
+  ],
+  "regra_das_metricas": "NUNCA escreva AVG() sobre uma medida. O fato é agregado: AVG daria média de média, errada sempre que os grupos têm tamanhos diferentes. Sempre SUM(numerador)/SUM(denominador).",
+  "problemas": [
+    "ano_mes IS NULL em {sem_data_voos} voos ({sem_data_pct}%). Nenhum deles pode ser pontual, mas todos entram no denominador: é por isso que o OTP global ({otp_global}%) fica abaixo do OTP sobre os voos com data ({otp_com_data}%). Em pergunta sobre pontualidade geral, filtre ano_mes IS NOT NULL e diga que filtrou. Em pergunta sobre um mês específico, o filtro já é natural.",
+    "Atrasos implausíveis: a fonte tem timestamps invertidos ({atrasos_implausiveis} atrasos fora da faixa de {faixa_min} a {faixa_max} min). Em ranking de atraso, use soma_atraso_plausivel/com_atraso_plausivel (restrito a essa faixa) e avise no campo \"aviso\".",
+    "dim_rota.origem_igual_destino = true em rotas tipo SBGR->SBGR, 0 km. Em pergunta sobre distância, exclua com \"AND NOT r.origem_igual_destino\".",
+    "Cauda longa: empresa com 3 voos pode ter 100% ou 0% de pontualidade. Em ranking, filtre com HAVING SUM(realizados) >= 500 (ou >= 100 para aeroportos) e diga o corte no título.",
+    "A justificativa de cancelamento é a mesma em todos os {cancelados} cancelamentos ('N/A') — a coluna não foi exportada porque não tem informação. Se perguntarem o MOTIVO de cancelamentos, responda que o dado não existe na fonte. Não invente motivo.",
+    "O cadastro de aeródromos da ANAC só cobre aeródromo brasileiro: em {sem_cadastro} dos {aerodromos}, nome/municipio/uf/latitude são NULL — {sem_cadastro_estrangeiros} estrangeiros (SCEL Santiago, SABE e SAEZ Buenos Aires, KMIA Miami, LPPT Lisboa, MPTO Panamá) e {sem_cadastro_brasileiros} brasileiros fora do cadastro ({sem_cadastro_brasileiros_icao}). São {sem_cadastro_pct}% das partidas. Nomeie aeroporto sempre por \"rotulo\" (= municipio, senão nome, senão o ICAO), nunca por municipio direto. Em mapa, filtre latitude IS NOT NULL e avise que os estrangeiros ficam de fora.",
+    "Ranking de pontualidade POR AERÓDROMO fica dominado por origens estrangeiras de pouco volume: voo de empresa estrangeira tem pontualidade registrada pior ({otp_estrangeiras}% contra {otp_nacionais}% das nacionais). Nesse tipo de pergunta, diga no \"aviso\" que a lista é de aeroportos estrangeiros — ou, se a pergunta for sobre o Brasil, restrinja com \"a.uf IS NOT NULL\"."
+  ],
+  "regras_sql": [
+    "Você traduz uma pergunta em português para UMA consulta SQL do DuckDB sobre o schema acima.",
+    "",
+    "Obrigatório:",
+    "- Um único SELECT. Sem ponto e vírgula, sem CTE múltipla desnecessária, sem DDL, sem ATTACH, sem COPY, sem INSTALL, sem LOAD, sem acesso a arquivo.",
+    "- Sempre LIMIT, no máximo 100.",
+    "- Nomes de empresa e aeroporto vêm das dimensões por JOIN — nunca invente um nome, nunca escreva um ICAO que não esteja na pergunta.",
+    "- Apelide toda coluna de saída com AS e um nome curto em minúsculas.",
+    "- Texto (município, nome) se compara normalizado dos dois lados, porque a base guarda em maiúsculas com acento e quem pergunta escreve como quiser:",
+    "    strip_accents(upper(a.municipio)) = 'SAO PAULO'",
+    "    strip_accents(upper(e.nome)) LIKE '%ARAJET%'",
+    "- Se a CONVERSA mostra que uma consulta sua retornou 0 linhas, quase sempre é um filtro de texto que não bate com a base. Revise sigla, maiúsculas, acento e marca, e NÃO repita o mesmo filtro. Se a pergunta for a mesma, reescreva a consulta.",
+    "- Nomes de coluna em \"x\" e \"y\" têm de ser exatamente os apelidos do SELECT.",
+    "- Qual dos dois é a MEDIDA depende do gráfico, e barra_horizontal é a exceção:",
+    "    barra_horizontal  x = a medida (o valor corre na horizontal), y = o rótulo",
+    "    barra_vertical    x = o rótulo, y = a medida",
+    "    linha             x = o rótulo do tempo, y = a medida",
+    "    dispersao         x e y são as duas medidas",
+    "    halteres          x e y são os dois estados comparados",
+    "",
+    "Escolha de \"grafico\":",
+    "  barra_horizontal  ranking com rótulo comprido (empresas, aeroportos, rotas) — o padrão",
+    "  barra_vertical    poucas categorias curtas",
+    "  linha             série temporal (ordene por dim_tempo.ordem)",
+    "  dispersao         duas medidas numéricas, uma por entidade",
+    "  halteres          mesma entidade em dois estados (ida vs volta, dois meses)",
+    "  mapa              precisa de latitude e longitude no SELECT",
+    "  tabela            mais de 3 colunas de medida, ou nada disso serve",
+    "",
+    "Preencha \"aviso\" (uma frase, ou vazio) quando um problema da fonte afeta ESTE número.",
+    "Um mês com dias_com_voo menor que 28 está incompleto: a fonte termina no meio dele. Ao mostrar série por mês, diga isso no \"aviso\" — senão o último ponto parece uma queda.",
+    "Pergunta que o schema não responde NÃO vira consulta: ela é \"conversa\", como manda o roteamento. Nunca devolva um SELECT que retorna uma frase de explicação."
+  ]
+}

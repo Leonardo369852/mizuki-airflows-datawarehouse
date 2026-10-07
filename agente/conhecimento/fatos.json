@@ -1,0 +1,136 @@
+{
+  "sobre": "Gerado por conferir.py a partir de agente/dados/manifest.json — não editar à mão.",
+  "manifest_gerado_em": "2026-09-21T17:00:01+00:00",
+  "fatos": {
+    "periodo": {
+      "texto": "ago/2025 a jul/2026"
+    },
+    "meses_completos": {
+      "valor": 12,
+      "texto": "12"
+    },
+    "periodo_parcial": {
+      "texto": "O mês ago/2026 tem só 1 dia na fonte (17 voos): a série termina no começo dele."
+    },
+    "voos": {
+      "valor": 1014705,
+      "texto": "1.014.705"
+    },
+    "linhas_fato": {
+      "valor": 86518,
+      "texto": "86.518"
+    },
+    "empresas": {
+      "valor": 118,
+      "texto": "118"
+    },
+    "aerodromos": {
+      "valor": 224,
+      "texto": "224"
+    },
+    "rotas": {
+      "valor": 3104,
+      "texto": "3.104"
+    },
+    "tamanho_mb": {
+      "valor": 1.5,
+      "texto": "1,5"
+    },
+    "sem_data_voos": {
+      "valor": 30800,
+      "texto": "30.800"
+    },
+    "sem_data_pct": {
+      "valor": 3.0,
+      "texto": "3,0"
+    },
+    "otp_global": {
+      "valor": 79.9,
+      "texto": "79,9"
+    },
+    "otp_com_data": {
+      "valor": 82.5,
+      "texto": "82,5"
+    },
+    "otp_mes_min": {
+      "valor": 72.0,
+      "texto": "72,0"
+    },
+    "otp_mes_min_nome": {
+      "texto": "dez/2025"
+    },
+    "otp_mes_max": {
+      "valor": 85.9,
+      "texto": "85,9"
+    },
+    "otp_mes_max_nome": {
+      "texto": "ago/2025"
+    },
+    "cancelados": {
+      "valor": 29145,
+      "texto": "29.145"
+    },
+    "atrasos_implausiveis": {
+      "valor": 1378,
+      "texto": "1.378"
+    },
+    "faixa_min": {
+      "valor": -60,
+      "texto": "-60"
+    },
+    "faixa_max": {
+      "valor": 1440,
+      "texto": "1.440"
+    },
+    "sem_cadastro": {
+      "valor": 85,
+      "texto": "85"
+    },
+    "sem_cadastro_estrangeiros": {
+      "valor": 79,
+      "texto": "79"
+    },
+    "sem_cadastro_brasileiros": {
+      "valor": 6,
+      "texto": "6"
+    },
+    "sem_cadastro_brasileiros_icao": {
+      "texto": "SBCR, SBIZ, SBUY, SDLO, SNCL, SSOU"
+    },
+    "sem_cadastro_pct": {
+      "valor": 10.5,
+      "texto": "10,5"
+    },
+    "fora_da_dim_origens": {
+      "valor": 150,
+      "texto": "150"
+    },
+    "fora_da_dim_voos": {
+      "valor": 853,
+      "texto": "853"
+    },
+    "otp_nacionais": {
+      "valor": 81.8,
+      "texto": "81,8"
+    },
+    "otp_estrangeiras": {
+      "valor": 67.2,
+      "texto": "67,2"
+    },
+    "rotas_sem_distancia": {
+      "valor": 1444,
+      "texto": "1.444"
+    },
+    "rotas_sem_distancia_voos": {
+      "valor": 194987,
+      "texto": "194.987"
+    },
+    "rotas_sem_distancia_pct": {
+      "valor": 19.2,
+      "texto": "19,2"
+    },
+    "municipios_com_varios_aerodromos": {
+      "texto": "RIO DE JANEIRO: SBGL, SBJR, SBRJ"
+    }
+  }
+}
