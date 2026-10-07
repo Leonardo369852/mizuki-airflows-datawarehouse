@@ -1,0 +1,1629 @@
+{
+ "rodada": "final",
+ "quando": "2026-10-07T14:07:25",
+ "worker": "atual (offline)",
+ "chave_falsa": false,
+ "saude": {},
+ "fatos_do_prompt": [
+  0.0,
+  0.3,
+  1.0,
+  1.2,
+  1.5,
+  2.0,
+  2.4,
+  3.0,
+  3.4,
+  5.0,
+  6.0,
+  9.0,
+  10.0,
+  10.5,
+  12.0,
+  14.0,
+  15.0,
+  16.0,
+  17.0,
+  19.0,
+  19.2,
+  20.0,
+  23.6,
+  27.0,
+  28.0,
+  60.0,
+  67.0,
+  67.2,
+  72.0,
+  73.8,
+  79.0,
+  79.9,
+  80.0,
+  81.0,
+  81.8,
+  82.0,
+  82.5,
+  85.0,
+  85.9,
+  100.0,
+  118.0,
+  150.0,
+  224.0,
+  500.0,
+  853.0,
+  900.0,
+  1378.0,
+  1440.0,
+  1444.0,
+  1500.0,
+  2025.0,
+  2026.0,
+  3104.0,
+  29145.0,
+  30800.0,
+  86518.0,
+  194987.0,
+  1014705.0
+ ],
+ "rotas_de_todas": {
+  "oi": "fixa",
+  "quem": "fixa",
+  "como": "fixa",
+  "obrigado": "fixa",
+  "ajuda": "fixa",
+  "motivo": "fixa",
+  "voo_especifico": "fixa",
+  "por_dia": "fixa",
+  "horario": "fixa",
+  "cancel_taxa": "pronta",
+  "otp_mes": "pronta",
+  "aero_mov": "pronta",
+  "madrugada": "pronta",
+  "nac_estr": "pronta",
+  "sp_sair": "pronta",
+  "sp_todos": "template",
+  "mg_partidas": "template",
+  "latam_voos": "template",
+  "gol_otp": "template",
+  "gru_voos": "template",
+  "cgh_otp": "template",
+  "dez_voos": "template",
+  "azul_cancel": "template",
+  "latam_mes": "template",
+  "rota_top": "ia",
+  "atraso_aero": "ia",
+  "dist_media": "ia",
+  "estr_top": "ia",
+  "cancel_periodo": "ia",
+  "fds": "ia",
+  "seguimento_mg": "ia"
+ },
+ "resultados": [
+  {
+   "id": "oi",
+   "pergunta": "oi?",
+   "rota": "fixa",
+   "passos": [],
+   "planos": [],
+   "tipo": "conversa",
+   "texto": "Olá! Eu respondo perguntas sobre voos comerciais brasileiros de ago/2025 a jul/2026: pontualidade, atrasos, cancelamentos, empresas, aeroportos e rotas. Pergunte em português ou use uma das perguntas prontas.",
+   "sql": null,
+   "linhas": [],
+   "erro": null,
+   "intencao": "saudacao",
+   "segundos": 0.0009
+  },
+  {
+   "id": "quem",
+   "pergunta": "quem é você?",
+   "rota": "fixa",
+   "passos": [],
+   "planos": [],
+   "tipo": "conversa",
+   "texto": "Sou o agente do Mizuki Airflows, um data warehouse de voos comerciais brasileiros feito em Databricks sobre os dados abertos da ANAC. Traduzo a sua pergunta em SQL, e a consulta roda aqui, no seu navegador, sobre 86.518 linhas agregadas de 1.014.705 voos (ago/2025 a jul/2026). Sou uma demonstração: o agente completo do projeto é um Genie space dentro do Databricks.",
+   "sql": null,
+   "linhas": [],
+   "erro": null,
+   "intencao": "identidade",
+   "segundos": 0.0005
+  },
+  {
+   "id": "como",
+   "pergunta": "como você funciona?",
+   "rota": "fixa",
+   "passos": [],
+   "planos": [],
+   "tipo": "conversa",
+   "texto": "Em três passos: a IA traduz a pergunta em uma consulta SQL; a consulta roda aqui, no seu navegador, com DuckDB, sobre os dados exportados da camada Gold; e o resultado vira gráfico, tabela e texto. Toda resposta mostra o SQL que produziu o número. As perguntas prontas, e as que eu reconheço sozinho, nem passam pela IA.",
+   "sql": null,
+   "linhas": [],
+   "erro": null,
+   "intencao": "funcionamento",
+   "segundos": 0.0007
+  },
+  {
+   "id": "obrigado",
+   "pergunta": "obrigado!",
+   "rota": "fixa",
+   "passos": [],
+   "planos": [],
+   "tipo": "conversa",
+   "texto": "Por nada! Se quiser, é só perguntar outra coisa sobre os voos.",
+   "sql": null,
+   "linhas": [],
+   "erro": null,
+   "intencao": "agradecimento",
+   "segundos": 0.0
+  },
+  {
+   "id": "ajuda",
+   "pergunta": "o que eu posso perguntar?",
+   "rota": "fixa",
+   "passos": [],
+   "planos": [],
+   "tipo": "conversa",
+   "texto": "Dá para perguntar sobre pontualidade, atrasos, cancelamentos, empresas, aeroportos, estados, rotas e meses — por exemplo, \"qual a pontualidade da GOL?\", \"quantos voos partiram de Minas Gerais?\" ou \"quais rotas saindo de Guarulhos têm mais voos?\". O que a base não tem: voo específico, corte por dia, horário exato e motivo de cancelamento.",
+   "sql": null,
+   "linhas": [],
+   "erro": null,
+   "intencao": "ajuda",
+   "segundos": 0.0011
+  },
+  {
+   "id": "motivo",
+   "pergunta": "qual o motivo dos cancelamentos?",
+   "rota": "fixa",
+   "passos": [],
+   "planos": [],
+   "tipo": "conversa",
+   "texto": "Não existe esse dado: a justificativa de cancelamento está vazia em todos os 29.145 cancelamentos da fonte. Posso mostrar quantos foram, quando e de quem — mas não o porquê.",
+   "sql": null,
+   "linhas": [],
+   "erro": null,
+   "intencao": "fora_do_grao.motivo_cancelamento",
+   "segundos": 0.0008
+  },
+  {
+   "id": "voo_especifico",
+   "pergunta": "o voo AD 4512 de ontem atrasou?",
+   "rota": "fixa",
+   "passos": [],
+   "planos": [],
+   "tipo": "conversa",
+   "texto": "Não consigo olhar um voo específico: a base que eu consulto é agregada por mês, empresa e rota, sem número de voo nem data exata. O Genie do projeto, no Databricks, consulta voo a voo.",
+   "sql": null,
+   "linhas": [],
+   "erro": null,
+   "intencao": "fora_do_grao.voo_especifico",
+   "segundos": 0.001
+  },
+  {
+   "id": "por_dia",
+   "pergunta": "quantos voos teve no dia 25 de dezembro?",
+   "rota": "fixa",
+   "passos": [],
+   "planos": [],
+   "tipo": "conversa",
+   "texto": "Não tenho corte por dia: a base é agregada por mês, e do dia da semana só separa dia útil de fim de semana. Posso responder pelo mês inteiro.",
+   "sql": null,
+   "linhas": [],
+   "erro": null,
+   "intencao": "fora_do_grao.por_dia",
+   "segundos": 0.0008
+  },
+  {
+   "id": "horario",
+   "pergunta": "a que horas sai o primeiro voo de congonhas?",
+   "rota": "fixa",
+   "passos": [],
+   "planos": [],
+   "tipo": "conversa",
+   "texto": "Não tenho horário exato: só o período do dia da partida (madrugada, manhã, tarde e noite). Posso comparar os períodos.",
+   "sql": null,
+   "linhas": [],
+   "erro": null,
+   "intencao": "fora_do_grao.horario",
+   "segundos": 0.0001
+  },
+  {
+   "id": "cancel_taxa",
+   "pergunta": "que empresa tem a maior taxa de cancelamentos?",
+   "rota": "pronta",
+   "passos": [],
+   "planos": [],
+   "tipo": "consulta",
+   "texto": "A maior taxa de cancelamento é a da ARAJET S.A.: 73,8% dos voos programados, entre as 15 empresas do gráfico.",
+   "sql": "SELECT e.nome AS empresa,\n       100.0 * SUM(f.cancelados) / SUM(f.voos) AS taxa,\n       SUM(f.voos) AS programados\nFROM fato_voos f JOIN dim_empresa e ON f.icao_empresa = e.icao_empresa\nGROUP BY e.nome\nHAVING SUM(f.voos) >= 500\nORDER BY taxa DESC\nLIMIT 15",
+   "linhas": [
+    {
+     "empresa": "ARAJET S.A.",
+     "taxa": 73.79378717779247,
+     "programados": 3026
+    },
+    {
+     "empresa": "IBÉRIA LINEAS AEREAS DE ESPAÑA SOCIEDAD ANONIMA OPERADORA",
+     "taxa": 54.60665512598577,
+     "programados": 5199
+    },
+    {
+     "empresa": "ETHIOPIAN AIRLINES GROUP",
+     "taxa": 45.05336025382175,
+     "programados": 3467
+    },
+    {
+     "empresa": "QATAR AIRWAYS GROUP",
+     "taxa": 41.06741573033708,
+     "programados": 3560
+    },
+    {
+     "empresa": "ABSA - AEROLINHAS BRASILEIRAS S.A.",
+     "taxa": 23.066696210946155,
+     "programados": 4513
+    },
+    {
+     "empresa": "ITALIA TRANSPORTO AEREO S.P.A.",
+     "taxa": 22.386953298739808,
+     "programados": 2698
+    },
+    {
+     "empresa": "TAMPA CARGO S.A.",
+     "taxa": 20.278044103547458,
+     "programados": 2086
+    },
+    {
+     "empresa": "BOA BOLIVIANA DE AVIACIÓN",
+     "taxa": 17.847411444141688,
+     "programados": 1468
+    },
+    {
+     "empresa": "ATLAS AIR INC",
+     "taxa": 16.472617507546357,
+     "programados": 2319
+    },
+    {
+     "empresa": "DEUTSCHE LUFTHANSA A.G.",
+     "taxa": 15.816618911174785,
+     "programados": 1745
+    },
+    {
+     "empresa": "AZUL CONECTA LTDA. (EX TWO TAXI AEREO LTDA)",
+     "taxa": 14.349621472814865,
+     "programados": 14530
+    },
+    {
+     "empresa": "SKY AIRLINE S.A.",
+     "taxa": 10.987849973586899,
+     "programados": 5679
+    },
+    {
+     "empresa": "ATA - AEROTÁXI ABAETÉ LTDA.",
+     "taxa": 10.406885758998435,
+     "programados": 1278
+    },
+    {
+     "empresa": "FB LÍNEAS AÉREAS S.A (FLYBONDI)",
+     "taxa": 10.121212121212121,
+     "programados": 3300
+    },
+    {
+     "empresa": "EMIRATES",
+     "taxa": 9.600313479623825,
+     "programados": 2552
+    }
+   ],
+   "erro": null,
+   "plano": {
+    "tipo": "consulta",
+    "grafico": "barra_horizontal",
+    "x": "taxa",
+    "y": "empresa",
+    "unidade": "%",
+    "titulo": "Taxa de cancelamento — empresas com 500+ voos programados",
+    "aviso": "",
+    "frase": "A maior taxa de cancelamento é a da {maior.rotulo}: {maior.taxa} dos voos programados, entre as {n} empresas do gráfico.",
+    "sql": "SELECT e.nome AS empresa,\n       100.0 * SUM(f.cancelados) / SUM(f.voos) AS taxa,\n       SUM(f.voos) AS programados\nFROM fato_voos f JOIN dim_empresa e ON f.icao_empresa = e.icao_empresa\nGROUP BY e.nome\nHAVING SUM(f.voos) >= 500\nORDER BY taxa DESC\nLIMIT 15",
+    "serie": "",
+    "resposta": ""
+   },
+   "origem_texto": "modelo",
+   "segundos": 0.0485
+  },
+  {
+   "id": "otp_mes",
+   "pergunta": "como a pontualidade variou ao longo dos meses?",
+   "rota": "pronta",
+   "passos": [],
+   "planos": [],
+   "tipo": "consulta",
+   "texto": "A pontualidade de partida ficou entre 72,0%, em dez/2025, e 85,9%, em ago/2025.",
+   "sql": "SELECT t.nome_mes AS mes,\n       100.0 * SUM(f.partidas_pontuais) / NULLIF(SUM(f.realizados), 0) AS otp,\n       SUM(f.realizados) AS realizados\nFROM fato_voos f JOIN dim_tempo t ON f.ano_mes = t.ano_mes\nWHERE t.dias_com_voo >= 28\nGROUP BY t.nome_mes, t.ordem\nORDER BY t.ordem\nLIMIT 20",
+   "linhas": [
+    {
+     "mes": "ago/2025",
+     "otp": 85.94363138280806,
+     "realizados": 81038
+    },
+    {
+     "mes": "set/2025",
+     "otp": 85.69567715982376,
+     "realizados": 78305
+    },
+    {
+     "mes": "out/2025",
+     "otp": 83.54554480019856,
+     "realizados": 80580
+    },
+    {
+     "mes": "nov/2025",
+     "otp": 81.88891940314123,
+     "realizados": 76467
+    },
+    {
+     "mes": "dez/2025",
+     "otp": 72.01809138343005,
+     "realizados": 82028
+    },
+    {
+     "mes": "jan/2026",
+     "otp": 81.51540479673098,
+     "realizados": 86142
+    },
+    {
+     "mes": "fev/2026",
+     "otp": 82.3354735152488,
+     "realizados": 74760
+    },
+    {
+     "mes": "mar/2026",
+     "otp": 84.96415683214668,
+     "realizados": 82024
+    },
+    {
+     "mes": "abr/2026",
+     "otp": 82.43833555488102,
+     "realizados": 75773
+    },
+    {
+     "mes": "mai/2026",
+     "otp": 84.95825321650256,
+     "realizados": 77491
+    },
+    {
+     "mes": "jun/2026",
+     "otp": 81.37307849361802,
+     "realizados": 75917
+    },
+    {
+     "mes": "jul/2026",
+     "otp": 83.19441476098882,
+     "realizados": 84222
+    }
+   ],
+   "erro": null,
+   "plano": {
+    "tipo": "consulta",
+    "grafico": "linha",
+    "x": "mes",
+    "y": "otp",
+    "unidade": "%",
+    "titulo": "OTP de partida por mês",
+    "aviso": "Só meses completos, e sem os 30.800 voos sem data de partida prevista — sem horário previsto não há atraso a calcular.",
+    "frase": "A pontualidade de partida ficou entre {menor.otp}, em {menor.rotulo}, e {maior.otp}, em {maior.rotulo}.",
+    "sql": "SELECT t.nome_mes AS mes,\n       100.0 * SUM(f.partidas_pontuais) / NULLIF(SUM(f.realizados), 0) AS otp,\n       SUM(f.realizados) AS realizados\nFROM fato_voos f JOIN dim_tempo t ON f.ano_mes = t.ano_mes\nWHERE t.dias_com_voo >= 28\nGROUP BY t.nome_mes, t.ordem\nORDER BY t.ordem\nLIMIT 20",
+    "serie": "",
+    "resposta": ""
+   },
+   "origem_texto": "modelo",
+   "segundos": 0.0202
+  },
+  {
+   "id": "aero_mov",
+   "pergunta": "quais são os aeroportos mais movimentados?",
+   "rota": "pronta",
+   "passos": [],
+   "planos": [],
+   "tipo": "consulta",
+   "texto": "O aeródromo com mais partidas é GUARULHOS, com 147.976; o mapa mostra os 58 mais movimentados.",
+   "sql": "SELECT a.icao, a.rotulo AS local, a.latitude, a.longitude,\n       SUM(f.voos) AS voos,\n       100.0 * SUM(f.partidas_pontuais) / NULLIF(SUM(f.realizados), 0) AS otp\nFROM fato_voos f JOIN dim_aerodromo a ON f.icao_origem = a.icao\nWHERE a.latitude IS NOT NULL\nGROUP BY a.icao, a.rotulo, a.latitude, a.longitude\nHAVING SUM(f.voos) >= 900\nORDER BY voos DESC\nLIMIT 80",
+   "linhas": [
+    {
+     "icao": "SBGR",
+     "local": "GUARULHOS",
+     "latitude": -23.435556,
+     "longitude": -46.473056,
+     "voos": 147976,
+     "otp": 70.97654873067326
+    },
+    {
+     "icao": "SBSP",
+     "local": "SÃO PAULO",
+     "latitude": -23.626111,
+     "longitude": -46.656389,
+     "voos": 95707,
+     "otp": 79.78423466076539
+    },
+    {
+     "icao": "SBGL",
+     "local": "RIO DE JANEIRO",
+     "latitude": -22.81,
+     "longitude": -43.250556,
+     "voos": 62644,
+     "otp": 82.67762486018577
+    },
+    {
+     "icao": "SBBR",
+     "local": "BRASÍLIA",
+     "latitude": -15.871111,
+     "longitude": -47.918611,
+     "voos": 60723,
+     "otp": 87.23177927366409
+    },
+    {
+     "icao": "SBKP",
+     "local": "CAMPINAS",
+     "latitude": -23.006944,
+     "longitude": -47.134444,
+     "voos": 60387,
+     "otp": 77.73606061635691
+    },
+    {
+     "icao": "SBCF",
+     "local": "CONFINS",
+     "latitude": -19.624444,
+     "longitude": -43.971944,
+     "voos": 56874,
+     "otp": 83.17890489707746
+    },
+    {
+     "icao": "SBRF",
+     "local": "RECIFE",
+     "latitude": -8.1263889,
+     "longitude": -34.922778,
+     "voos": 37399,
+     "otp": 84.61810370612068
+    },
+    {
+     "icao": "SBSV",
+     "local": "SALVADOR",
+     "latitude": -12.908611,
+     "longitude": -38.3225,
+     "voos": 30665,
+     "otp": 86.22354497354497
+    },
+    {
+     "icao": "SBPA",
+     "local": "PORTO ALEGRE",
+     "latitude": -29.994722,
+     "longitude": -51.171111,
+     "voos": 30513,
+     "otp": 84.82425453939697
+    },
+    {
+     "icao": "SBRJ",
+     "local": "RIO DE JANEIRO",
+     "latitude": -22.91,
+     "longitude": -43.1625,
+     "voos": 29565,
+     "otp": 88.57601451550997
+    },
+    {
+     "icao": "SBCT",
+     "local": "CURITIBA",
+     "latitude": -25.531667,
+     "longitude": -49.176111,
+     "voos": 26589,
+     "otp": 82.65777914772289
+    },
+    {
+     "icao": "SBFZ",
+     "local": "FORTALEZA",
+     "latitude": -3.7758333,
+     "longitude": -38.532222,
+     "voos": 20640,
+     "otp": 84.95861292060538
+    },
+    {
+     "icao": "SBFL",
+     "local": "FLORIANÓPOLIS",
+     "latitude": -27.670278,
+     "longitude": -48.5525,
+     "voos": 19247,
+     "otp": 80.24499839520702
+    },
+    {
+     "icao": "SBBE",
+     "local": "BELÉM",
+     "latitude": -1.3847222,
+     "longitude": -48.478889,
+     "voos": 16344,
+     "otp": 84.61346321968277
+    },
+    {
+     "icao": "SBEG",
+     "local": "MANAUS",
+     "latitude": -3.0411111,
+     "longitude": -60.050556,
+     "voos": 16195,
+     "otp": 78.83315087900058
+    },
+    {
+     "icao": "SBVT",
+     "local": "VITÓRIA",
+     "latitude": -20.258056,
+     "longitude": -40.286389,
+     "voos": 13695,
+     "otp": 85.24529420483178
+    },
+    {
+     "icao": "SBGO",
+     "local": "GOIÂNIA",
+     "latitude": -16.6325,
+     "longitude": -49.221111,
+     "voos": 13636,
+     "otp": 85.5964325529543
+    },
+    {
+     "icao": "SBMO",
+     "local": "MACEIÓ",
+     "latitude": -9.5108333,
+     "longitude": -35.791667,
+     "voos": 10640,
+     "otp": 87.00028487323141
+    },
+    {
+     "icao": "SBCY",
+     "local": "CUIABÁ",
+     "latitude": -15.65,
+     "longitude": -56.1175,
+     "voos": 9883,
+     "otp": 85.15544574840436
+    },
+    {
+     "icao": "SBPS",
+     "local": "PORTO SEGURO",
+     "latitude": -16.438056,
+     "longitude": -39.077778,
+     "voos": 9664,
+     "otp": 82.85472972972973
+    },
+    {
+     "icao": "SBSG",
+     "local": "SÃO GONÇALO DO AMARANTE",
+     "latitude": -5.7688889,
+     "longitude": -35.366389,
+     "voos": 9143,
+     "otp": 85.7805255023184
+    },
+    {
+     "icao": "SBFI",
+     "local": "FOZ DO IGUAÇU",
+     "latitude": -25.600278,
+     "longitude": -54.485,
+     "voos": 8620,
+     "otp": 81.63121400869667
+    },
+    {
+     "icao": "SBNF",
+     "local": "NAVEGANTES",
+     "latitude": -26.878611,
+     "longitude": -48.650833,
+     "voos": 8437,
+     "otp": 84.83009708737865
+    },
+    {
+     "icao": "SBSL",
+     "local": "SÃO LUÍS",
+     "latitude": -2.5869444,
+     "longitude": -44.236111,
+     "voos": 6806,
+     "otp": 85.78241430700447
+    },
+    {
+     "icao": "SBJP",
+     "local": "BAYEUX",
+     "latitude": -7.1483333,
+     "longitude": -34.950278,
+     "voos": 6680,
+     "otp": 84.55026455026454
+    },
+    {
+     "icao": "SBUL",
+     "local": "UBERLÂNDIA",
+     "latitude": -18.883611,
+     "longitude": -48.225278,
+     "voos": 5687,
+     "otp": 81.6034359341446
+    },
+    {
+     "icao": "SBAR",
+     "local": "ARACAJU",
+     "latitude": -10.985278,
+     "longitude": -37.073333,
+     "voos": 5170,
+     "otp": 84.26703103650205
+    },
+    {
+     "icao": "SBCG",
+     "local": "CAMPO GRANDE",
+     "latitude": -20.469444,
+     "longitude": -54.670278,
+     "voos": 5007,
+     "otp": 83.05768455022186
+    },
+    {
+     "icao": "SBSR",
+     "local": "SÃO JOSÉ DO RIO PRETO",
+     "latitude": -20.817222,
+     "longitude": -49.406944,
+     "voos": 4555,
+     "otp": 84.26612721959991
+    },
+    {
+     "icao": "SBTE",
+     "local": "TERESINA",
+     "latitude": -5.0605556,
+     "longitude": -42.824444,
+     "voos": 4364,
+     "otp": 88.59122401847576
+    },
+    {
+     "icao": "SBRP",
+     "local": "RIBEIRÃO PRETO",
+     "latitude": -21.136389,
+     "longitude": -47.776667,
+     "voos": 4261,
+     "otp": 84.3809980806142
+    },
+    {
+     "icao": "SBMG",
+     "local": "MARINGÁ",
+     "latitude": -23.476389,
+     "longitude": -52.017778,
+     "voos": 3694,
+     "otp": 85.42241855328548
+    },
+    {
+     "icao": "SBLO",
+     "local": "LONDRINA",
+     "latitude": -23.330278,
+     "longitude": -51.136667,
+     "voos": 3099,
+     "otp": 84.33497536945812
+    },
+    {
+     "icao": "SBPJ",
+     "local": "PALMAS",
+     "latitude": -10.29,
+     "longitude": -48.357778,
+     "voos": 2903,
+     "otp": 89.83994432846207
+    },
+    {
+     "icao": "SBCH",
+     "local": "CHAPECÓ",
+     "latitude": -27.133889,
+     "longitude": -52.658889,
+     "voos": 2786,
+     "otp": 83.22222222222223
+    },
+    {
+     "icao": "SBIL",
+     "local": "ILHÉUS",
+     "latitude": -14.815,
+     "longitude": -39.033333,
+     "voos": 2650,
+     "otp": 83.73517030233448
+    },
+    {
+     "icao": "SBMQ",
+     "local": "MACAPÁ",
+     "latitude": 0.050555556,
+     "longitude": -51.072222,
+     "voos": 2421,
+     "otp": 85.36890370987912
+    },
+    {
+     "icao": "SBJV",
+     "local": "JOINVILLE",
+     "latitude": -26.223056,
+     "longitude": -48.797778,
+     "voos": 2389,
+     "otp": 85.55602897315723
+    },
+    {
+     "icao": "SBSN",
+     "local": "SANTARÉM",
+     "latitude": -2.4247222,
+     "longitude": -54.785833,
+     "voos": 2189,
+     "otp": 90.02320185614849
+    },
+    {
+     "icao": "SBJU",
+     "local": "JUAZEIRO DO NORTE",
+     "latitude": -7.2191667,
+     "longitude": -39.269444,
+     "voos": 2183,
+     "otp": 86.01108033240997
+    },
+    {
+     "icao": "SBPV",
+     "local": "PORTO VELHO",
+     "latitude": -8.7136111,
+     "longitude": -63.902778,
+     "voos": 2161,
+     "otp": 79.0796963946869
+    },
+    {
+     "icao": "SBCA",
+     "local": "CASCAVEL",
+     "latitude": -25.002222,
+     "longitude": -53.501944,
+     "voos": 2074,
+     "otp": 79.78883861236802
+    },
+    {
+     "icao": "SBPL",
+     "local": "PETROLINA",
+     "latitude": -9.3675,
+     "longitude": -40.563611,
+     "voos": 1986,
+     "otp": 90.13657056145675
+    },
+    {
+     "icao": "SBMK",
+     "local": "MONTES CLAROS",
+     "latitude": -16.706111,
+     "longitude": -43.821944,
+     "voos": 1963,
+     "otp": 85.4639175257732
+    },
+    {
+     "icao": "SBVC",
+     "local": "VITÓRIA DA CONQUISTA",
+     "latitude": -14.907778,
+     "longitude": -40.914722,
+     "voos": 1812,
+     "otp": 86.24721603563475
+    },
+    {
+     "icao": "SBSI",
+     "local": "SINOP",
+     "latitude": -11.885,
+     "longitude": -55.586111,
+     "voos": 1794,
+     "otp": 86.7152466367713
+    },
+    {
+     "icao": "SBFN",
+     "local": "FERNANDO DE NORONHA",
+     "latitude": -3.8547222,
+     "longitude": -32.428333,
+     "voos": 1663,
+     "otp": 83.62068965517241
+    },
+    {
+     "icao": "SBMA",
+     "local": "MARABÁ",
+     "latitude": -5.3680556,
+     "longitude": -49.138056,
+     "voos": 1645,
+     "otp": 92.57425742574257
+    },
+    {
+     "icao": "SBRB",
+     "local": "RIO BRANCO",
+     "latitude": -9.8683333,
+     "longitude": -67.898056,
+     "voos": 1552,
+     "otp": 86.46714378659726
+    },
+    {
+     "icao": "SBIZ",
+     "local": "Prefeito Renato Moreira",
+     "latitude": -5.5305556,
+     "longitude": -47.458333,
+     "voos": 1458,
+     "otp": 89.19860627177701
+    },
+    {
+     "icao": "SBCJ",
+     "local": "PARAUAPEBAS",
+     "latitude": -6.1177778,
+     "longitude": -50.003333,
+     "voos": 1352,
+     "otp": 85.04601226993866
+    },
+    {
+     "icao": "SBBV",
+     "local": "BOA VISTA",
+     "latitude": 2.84138889,
+     "longitude": -60.692222,
+     "voos": 1277,
+     "otp": 87.53943217665615
+    },
+    {
+     "icao": "SBIP",
+     "local": "SANTANA DO PARAÍSO",
+     "latitude": -19.470556,
+     "longitude": -42.488056,
+     "voos": 1242,
+     "otp": 83.09741881765196
+    },
+    {
+     "icao": "SBDN",
+     "local": "PRESIDENTE PRUDENTE",
+     "latitude": -22.175,
+     "longitude": -51.424444,
+     "voos": 1236,
+     "otp": 86.19556285949055
+    },
+    {
+     "icao": "SBJR",
+     "local": "RIO DE JANEIRO",
+     "latitude": -22.9875,
+     "longitude": -43.37,
+     "voos": 1198,
+     "otp": 73.34035827186513
+    },
+    {
+     "icao": "SBCX",
+     "local": "CAXIAS DO SUL",
+     "latitude": -29.198056,
+     "longitude": -51.186667,
+     "voos": 1086,
+     "otp": 89.42213516160626
+    },
+    {
+     "icao": "SBKG",
+     "local": "CAMPINA GRANDE",
+     "latitude": -7.2691667,
+     "longitude": -35.895,
+     "voos": 996,
+     "otp": 87.66700924974306
+    },
+    {
+     "icao": "SBPF",
+     "local": "PASSO FUNDO",
+     "latitude": -28.244167,
+     "longitude": -52.328333,
+     "voos": 942,
+     "otp": 83.27939590075512
+    }
+   ],
+   "erro": null,
+   "plano": {
+    "tipo": "consulta",
+    "grafico": "mapa",
+    "x": "longitude",
+    "y": "latitude",
+    "unidade": "voos",
+    "titulo": "Partidas por aeródromo",
+    "aviso": "",
+    "frase": "O aeródromo com mais partidas é {maior.rotulo}, com {maior.voos}; o mapa mostra os {n} mais movimentados.",
+    "sql": "SELECT a.icao, a.rotulo AS local, a.latitude, a.longitude,\n       SUM(f.voos) AS voos,\n       100.0 * SUM(f.partidas_pontuais) / NULLIF(SUM(f.realizados), 0) AS otp\nFROM fato_voos f JOIN dim_aerodromo a ON f.icao_origem = a.icao\nWHERE a.latitude IS NOT NULL\nGROUP BY a.icao, a.rotulo, a.latitude, a.longitude\nHAVING SUM(f.voos) >= 900\nORDER BY voos DESC\nLIMIT 80",
+    "serie": "",
+    "resposta": ""
+   },
+   "origem_texto": "modelo",
+   "segundos": 0.0252
+  },
+  {
+   "id": "madrugada",
+   "pergunta": "vale a pena voar de madrugada?",
+   "rota": "pronta",
+   "passos": [],
+   "planos": [],
+   "tipo": "consulta",
+   "texto": "O período mais pontual é madrugada, com 87,7% dos voos no horário; o menos pontual é noite, com 77,2%.",
+   "sql": "SELECT f.periodo_partida AS periodo,\n       100.0 * SUM(f.partidas_pontuais) / NULLIF(SUM(f.realizados), 0) AS otp,\n       SUM(f.realizados) AS realizados\nFROM fato_voos f\nWHERE f.periodo_partida IS NOT NULL\nGROUP BY f.periodo_partida\nORDER BY otp DESC\nLIMIT 6",
+   "linhas": [
+    {
+     "periodo": "madrugada",
+     "otp": 87.66771206413421,
+     "realizados": 107774
+    },
+    {
+     "periodo": "manha",
+     "otp": 86.27257667518427,
+     "realizados": 298206
+    },
+    {
+     "periodo": "tarde",
+     "otp": 81.05757091696081,
+     "realizados": 310504
+    },
+    {
+     "periodo": "noite",
+     "otp": 77.1966123319176,
+     "realizados": 238276
+    }
+   ],
+   "erro": null,
+   "plano": {
+    "tipo": "consulta",
+    "grafico": "barra_vertical",
+    "x": "periodo",
+    "y": "otp",
+    "unidade": "%",
+    "titulo": "OTP de partida por período do dia",
+    "aviso": "",
+    "frase": "O período mais pontual é {maior.rotulo}, com {maior.otp} dos voos no horário; o menos pontual é {menor.rotulo}, com {menor.otp}.",
+    "sql": "SELECT f.periodo_partida AS periodo,\n       100.0 * SUM(f.partidas_pontuais) / NULLIF(SUM(f.realizados), 0) AS otp,\n       SUM(f.realizados) AS realizados\nFROM fato_voos f\nWHERE f.periodo_partida IS NOT NULL\nGROUP BY f.periodo_partida\nORDER BY otp DESC\nLIMIT 6",
+    "serie": "",
+    "resposta": ""
+   },
+   "origem_texto": "modelo",
+   "segundos": 0.0077
+  },
+  {
+   "id": "nac_estr",
+   "pergunta": "as empresas nacionais atrasam menos que as estrangeiras?",
+   "rota": "pronta",
+   "passos": [],
+   "planos": [],
+   "tipo": "consulta",
+   "texto": "O atraso médio de partida é de 23,6 min entre as Estrangeiras e de 5,5 min entre as Nacionais.",
+   "sql": "SELECT CASE WHEN e.nacional THEN 'Nacionais' ELSE 'Estrangeiras' END AS grupo,\n       SUM(f.soma_atraso_plausivel) / NULLIF(SUM(f.com_atraso_plausivel), 0) AS atraso,\n       100.0 * SUM(f.partidas_pontuais) / NULLIF(SUM(f.realizados), 0) AS otp,\n       SUM(f.realizados) AS realizados\nFROM fato_voos f JOIN dim_empresa e ON f.icao_empresa = e.icao_empresa\nGROUP BY 1\nORDER BY atraso DESC\nLIMIT 5",
+   "linhas": [
+    {
+     "grupo": "Estrangeiras",
+     "atraso": 23.632992817646606,
+     "otp": 67.18586133229753,
+     "realizados": 128725
+    },
+    {
+     "grupo": "Nacionais",
+     "atraso": 5.4542535923570385,
+     "otp": 81.80058004166496,
+     "realizados": 856835
+    }
+   ],
+   "erro": null,
+   "plano": {
+    "tipo": "consulta",
+    "grafico": "barra_vertical",
+    "x": "grupo",
+    "y": "atraso",
+    "unidade": "min",
+    "titulo": "Atraso médio de partida, faixa plausível",
+    "aviso": "Restrito a atrasos entre -60 e 1.440 min: a fonte tem timestamps invertidos que produzem médias impossíveis.",
+    "frase": "O atraso médio de partida é de {maior.atraso} entre as {maior.rotulo} e de {menor.atraso} entre as {menor.rotulo}.",
+    "sql": "SELECT CASE WHEN e.nacional THEN 'Nacionais' ELSE 'Estrangeiras' END AS grupo,\n       SUM(f.soma_atraso_plausivel) / NULLIF(SUM(f.com_atraso_plausivel), 0) AS atraso,\n       100.0 * SUM(f.partidas_pontuais) / NULLIF(SUM(f.realizados), 0) AS otp,\n       SUM(f.realizados) AS realizados\nFROM fato_voos f JOIN dim_empresa e ON f.icao_empresa = e.icao_empresa\nGROUP BY 1\nORDER BY atraso DESC\nLIMIT 5",
+    "serie": "",
+    "resposta": ""
+   },
+   "origem_texto": "modelo",
+   "segundos": 0.0207
+  },
+  {
+   "id": "sp_sair",
+   "pergunta": "sair de sp é pior que chegar?",
+   "rota": "pronta",
+   "passos": [],
+   "planos": [],
+   "tipo": "consulta",
+   "texto": "Na rota com a maior diferença, SÃO LUÍS, a pontualidade é de 65,0% saindo de GRU/CGH contra 81,4% chegando.",
+   "sql": "WITH sp AS (SELECT 'SBGR' AS icao UNION ALL SELECT 'SBSP'),\nsaindo AS (\n  SELECT f.icao_destino AS ponta,\n         100.0 * SUM(f.partidas_pontuais) / NULLIF(SUM(f.realizados), 0) AS otp,\n         SUM(f.realizados) AS n\n  FROM fato_voos f WHERE f.icao_origem IN (SELECT icao FROM sp)\n  GROUP BY f.icao_destino),\nchegando AS (\n  SELECT f.icao_origem AS ponta,\n         100.0 * SUM(f.partidas_pontuais) / NULLIF(SUM(f.realizados), 0) AS otp,\n         SUM(f.realizados) AS n\n  FROM fato_voos f WHERE f.icao_destino IN (SELECT icao FROM sp)\n  GROUP BY f.icao_origem)\nSELECT a.rotulo AS rota, s.otp AS saindo, c.otp AS chegando\nFROM saindo s JOIN chegando c ON s.ponta = c.ponta\nJOIN dim_aerodromo a ON a.icao = s.ponta\nWHERE s.n >= 1500 AND c.n >= 1500\nORDER BY (c.otp - s.otp) DESC\nLIMIT 14",
+   "linhas": [
+    {
+     "rota": "SÃO LUÍS",
+     "saindo": 64.98422712933754,
+     "chegando": 81.44712430426716
+    },
+    {
+     "rota": "FORTALEZA",
+     "saindo": 67.72046589018302,
+     "chegando": 83.20405255659333
+    },
+    {
+     "rota": "SAEZ",
+     "saindo": 53.72945638432364,
+     "chegando": 69.04176904176904
+    },
+    {
+     "rota": "SCEL",
+     "saindo": 61.95417207090359,
+     "chegando": 76.46649663807095
+    },
+    {
+     "rota": "MACEIÓ",
+     "saindo": 73.0312362516498,
+     "chegando": 87.24298032279461
+    },
+    {
+     "rota": "SUMU",
+     "saindo": 71.17414248021109,
+     "chegando": 85.3156146179402
+    },
+    {
+     "rota": "MARINGÁ",
+     "saindo": 72.44710211591536,
+     "chegando": 86.53757491931766
+    },
+    {
+     "rota": "MANAUS",
+     "saindo": 58.21479374110953,
+     "chegando": 72.20155563070679
+    },
+    {
+     "rota": "SÃO GONÇALO DO AMARANTE",
+     "saindo": 68.94239561109418,
+     "chegando": 82.89393010423053
+    },
+    {
+     "rota": "LONDRINA",
+     "saindo": 74.43150305047143,
+     "chegando": 86.83333333333333
+    },
+    {
+     "rota": "SALVADOR",
+     "saindo": 72.78047812716993,
+     "chegando": 84.39094062436237
+    },
+    {
+     "rota": "CAMPO GRANDE",
+     "saindo": 73.11367380560132,
+     "chegando": 84.49586776859505
+    },
+    {
+     "rota": "BAYEUX",
+     "saindo": 69.54368588609833,
+     "chegando": 80.92506274650412
+    },
+    {
+     "rota": "BRASÍLIA",
+     "saindo": 74.59674277253954,
+     "chegando": 85.84029349777535
+    }
+   ],
+   "erro": null,
+   "plano": {
+    "tipo": "consulta",
+    "grafico": "halteres",
+    "x": "saindo",
+    "y": "chegando",
+    "unidade": "%",
+    "titulo": "OTP saindo de GRU/CGH contra chegando — mesmas rotas",
+    "aviso": "",
+    "frase": "Na rota com a maior diferença, {primeiro.rota}, a pontualidade é de {primeiro.saindo} saindo de GRU/CGH contra {primeiro.chegando} chegando.",
+    "sql": "WITH sp AS (SELECT 'SBGR' AS icao UNION ALL SELECT 'SBSP'),\nsaindo AS (\n  SELECT f.icao_destino AS ponta,\n         100.0 * SUM(f.partidas_pontuais) / NULLIF(SUM(f.realizados), 0) AS otp,\n         SUM(f.realizados) AS n\n  FROM fato_voos f WHERE f.icao_origem IN (SELECT icao FROM sp)\n  GROUP BY f.icao_destino),\nchegando AS (\n  SELECT f.icao_origem AS ponta,\n         100.0 * SUM(f.partidas_pontuais) / NULLIF(SUM(f.realizados), 0) AS otp,\n         SUM(f.realizados) AS n\n  FROM fato_voos f WHERE f.icao_destino IN (SELECT icao FROM sp)\n  GROUP BY f.icao_origem)\nSELECT a.rotulo AS rota, s.otp AS saindo, c.otp AS chegando\nFROM saindo s JOIN chegando c ON s.ponta = c.ponta\nJOIN dim_aerodromo a ON a.icao = s.ponta\nWHERE s.n >= 1500 AND c.n >= 1500\nORDER BY (c.otp - s.otp) DESC\nLIMIT 14",
+    "serie": "",
+    "resposta": ""
+   },
+   "origem_texto": "modelo",
+   "segundos": 0.0204
+  },
+  {
+   "id": "sp_todos",
+   "pergunta": "voos em sao paulo, todos",
+   "rota": "template",
+   "passos": [],
+   "planos": [],
+   "tipo": "consulta",
+   "texto": "Os 16 aeroportos do estado de SP somam 317.327 partidas; o maior é GUARULHOS, com 147.976.",
+   "sql": "SELECT a.rotulo AS aeroporto, SUM(f.voos) AS voos\nFROM fato_voos f\nJOIN dim_aerodromo a ON f.icao_origem = a.icao\nWHERE a.uf = 'SP'\nGROUP BY a.icao, a.rotulo\nORDER BY voos DESC\nLIMIT 40",
+   "linhas": [
+    {
+     "aeroporto": "GUARULHOS",
+     "voos": 147976
+    },
+    {
+     "aeroporto": "SÃO PAULO",
+     "voos": 95707
+    },
+    {
+     "aeroporto": "CAMPINAS",
+     "voos": 60387
+    },
+    {
+     "aeroporto": "SÃO JOSÉ DO RIO PRETO",
+     "voos": 4555
+    },
+    {
+     "aeroporto": "RIBEIRÃO PRETO",
+     "voos": 4261
+    },
+    {
+     "aeroporto": "PRESIDENTE PRUDENTE",
+     "voos": 1236
+    },
+    {
+     "aeroporto": "ARAÇATUBA",
+     "voos": 603
+    },
+    {
+     "aeroporto": "SÃO JOSÉ DOS CAMPOS",
+     "voos": 563
+    },
+    {
+     "aeroporto": "BAURU",
+     "voos": 489
+    },
+    {
+     "aeroporto": "JUNDIAÍ",
+     "voos": 388
+    },
+    {
+     "aeroporto": "MARÍLIA",
+     "voos": 324
+    },
+    {
+     "aeroporto": "ARARAQUARA",
+     "voos": 268
+    },
+    {
+     "aeroporto": "SÃO CARLOS",
+     "voos": 236
+    },
+    {
+     "aeroporto": "FRANCA",
+     "voos": 142
+    },
+    {
+     "aeroporto": "BARRETOS",
+     "voos": 138
+    },
+    {
+     "aeroporto": "SOROCABA",
+     "voos": 54
+    }
+   ],
+   "erro": null,
+   "plano": {
+    "tipo": "consulta",
+    "sql": "SELECT a.rotulo AS aeroporto, SUM(f.voos) AS voos\nFROM fato_voos f\nJOIN dim_aerodromo a ON f.icao_origem = a.icao\nWHERE a.uf = 'SP'\nGROUP BY a.icao, a.rotulo\nORDER BY voos DESC\nLIMIT 40",
+    "grafico": "barra_horizontal",
+    "x": "voos",
+    "y": "aeroporto",
+    "unidade": "voos",
+    "titulo": "Partidas por aeroporto — estado de SP",
+    "aviso": "\"São Paulo\" foi lido como o estado (uf = 'SP'), não a cidade. Conta as partidas: os voos que saíram de lá.",
+    "frase": "Os {n} aeroportos do estado de SP somam {total.voos} partidas; o maior é {maior.rotulo}, com {maior.voos}.",
+    "serie": "",
+    "resposta": ""
+   },
+   "origem_texto": "modelo",
+   "segundos": 0.0151
+  },
+  {
+   "id": "mg_partidas",
+   "pergunta": "quantos voos partiram de minas gerais?",
+   "rota": "template",
+   "passos": [],
+   "planos": [],
+   "tipo": "consulta",
+   "texto": "Os 16 aeroportos do estado de MG somam 69.245 partidas; o maior é CONFINS, com 56.874.",
+   "sql": "SELECT a.rotulo AS aeroporto, SUM(f.voos) AS voos\nFROM fato_voos f\nJOIN dim_aerodromo a ON f.icao_origem = a.icao\nWHERE a.uf = 'MG'\nGROUP BY a.icao, a.rotulo\nORDER BY voos DESC\nLIMIT 40",
+   "linhas": [
+    {
+     "aeroporto": "CONFINS",
+     "voos": 56874
+    },
+    {
+     "aeroporto": "UBERLÂNDIA",
+     "voos": 5687
+    },
+    {
+     "aeroporto": "MONTES CLAROS",
+     "voos": 1963
+    },
+    {
+     "aeroporto": "SANTANA DO PARAÍSO",
+     "voos": 1242
+    },
+    {
+     "aeroporto": "GOIANÁ",
+     "voos": 759
+    },
+    {
+     "aeroporto": "GOVERNADOR VALADARES",
+     "voos": 746
+    },
+    {
+     "aeroporto": "UBERABA",
+     "voos": 453
+    },
+    {
+     "aeroporto": "DIVINÓPOLIS",
+     "voos": 382
+    },
+    {
+     "aeroporto": "TEÓFILO OTONI",
+     "voos": 172
+    },
+    {
+     "aeroporto": "SALINAS",
+     "voos": 156
+    },
+    {
+     "aeroporto": "PATOS DE MINAS",
+     "voos": 153
+    },
+    {
+     "aeroporto": "VARGINHA",
+     "voos": 153
+    },
+    {
+     "aeroporto": "ARAXÁ",
+     "voos": 143
+    },
+    {
+     "aeroporto": "PARACATU",
+     "voos": 134
+    },
+    {
+     "aeroporto": "MANHUAÇU",
+     "voos": 133
+    },
+    {
+     "aeroporto": "BELO HORIZONTE",
+     "voos": 95
+    }
+   ],
+   "erro": null,
+   "plano": {
+    "tipo": "consulta",
+    "sql": "SELECT a.rotulo AS aeroporto, SUM(f.voos) AS voos\nFROM fato_voos f\nJOIN dim_aerodromo a ON f.icao_origem = a.icao\nWHERE a.uf = 'MG'\nGROUP BY a.icao, a.rotulo\nORDER BY voos DESC\nLIMIT 40",
+    "grafico": "barra_horizontal",
+    "x": "voos",
+    "y": "aeroporto",
+    "unidade": "voos",
+    "titulo": "Partidas por aeroporto — estado de MG",
+    "aviso": "",
+    "frase": "Os {n} aeroportos do estado de MG somam {total.voos} partidas; o maior é {maior.rotulo}, com {maior.voos}.",
+    "serie": "",
+    "resposta": ""
+   },
+   "origem_texto": "modelo",
+   "segundos": 0.0136
+  },
+  {
+   "id": "latam_voos",
+   "pergunta": "quantos voos a latam fez?",
+   "rota": "template",
+   "passos": [],
+   "planos": [],
+   "tipo": "consulta",
+   "texto": "A marca LATAM soma 320.579 voos; a maior operadora é a TAM LINHAS AÉREAS S.A., com 302.082.",
+   "sql": "SELECT e.nome AS empresa, SUM(f.voos) AS voos\nFROM fato_voos f\nJOIN dim_empresa e ON f.icao_empresa = e.icao_empresa\nWHERE e.marca = 'LATAM'\nGROUP BY e.nome\nORDER BY voos DESC\nLIMIT 10",
+   "linhas": [
+    {
+     "empresa": "TAM LINHAS AÉREAS S.A.",
+     "voos": 302082
+    },
+    {
+     "empresa": "LATAM AIRLINES GROUP (EX - LAN AIRLINES S/A)",
+     "voos": 13957
+    },
+    {
+     "empresa": "LATAM AIRLINES PERU (EX-LAN PERU S.A.)",
+     "voos": 4312
+    },
+    {
+     "empresa": "LATAM AIRLINES ECUADOR S.A.",
+     "voos": 228
+    }
+   ],
+   "erro": null,
+   "plano": {
+    "tipo": "consulta",
+    "sql": "SELECT e.nome AS empresa, SUM(f.voos) AS voos\nFROM fato_voos f\nJOIN dim_empresa e ON f.icao_empresa = e.icao_empresa\nWHERE e.marca = 'LATAM'\nGROUP BY e.nome\nORDER BY voos DESC\nLIMIT 10",
+    "grafico": "barra_horizontal",
+    "x": "voos",
+    "y": "empresa",
+    "unidade": "voos",
+    "titulo": "Voos, por operadora — LATAM",
+    "aviso": "A marca LATAM soma 4 operadoras do grupo; a tabela mostra cada uma.",
+    "frase": "A marca LATAM soma {total.voos} voos; a maior operadora é a {maior.rotulo}, com {maior.voos}.",
+    "serie": "",
+    "resposta": ""
+   },
+   "origem_texto": "modelo",
+   "segundos": 0.0119
+  },
+  {
+   "id": "gol_otp",
+   "pergunta": "qual a pontualidade da gol?",
+   "rota": "template",
+   "passos": [],
+   "planos": [],
+   "tipo": "consulta",
+   "texto": "A pontualidade de partida da GOL é de 86,1%, sobre 251.589 voos realizados.",
+   "sql": "SELECT 100.0 * SUM(f.partidas_pontuais) / NULLIF(SUM(f.realizados), 0) AS otp, SUM(f.realizados) AS realizados\nFROM fato_voos f\nJOIN dim_empresa e ON f.icao_empresa = e.icao_empresa\nWHERE e.marca = 'GOL' AND f.ano_mes IS NOT NULL\nLIMIT 1",
+   "linhas": [
+    {
+     "otp": 86.05185441334875,
+     "realizados": 251589
+    }
+   ],
+   "erro": null,
+   "plano": {
+    "tipo": "consulta",
+    "sql": "SELECT 100.0 * SUM(f.partidas_pontuais) / NULLIF(SUM(f.realizados), 0) AS otp, SUM(f.realizados) AS realizados\nFROM fato_voos f\nJOIN dim_empresa e ON f.icao_empresa = e.icao_empresa\nWHERE e.marca = 'GOL' AND f.ano_mes IS NOT NULL\nLIMIT 1",
+    "grafico": "tabela",
+    "x": "realizados",
+    "y": "otp",
+    "unidade": "%",
+    "titulo": "OTP de partida — GOL",
+    "aviso": "Sem os 30.800 voos sem data de partida prevista, que não podem ser pontuais.",
+    "frase": "A pontualidade de partida da GOL é de {otp}, sobre {realizados} voos realizados.",
+    "serie": "",
+    "resposta": ""
+   },
+   "origem_texto": "modelo",
+   "segundos": 0.0089
+  },
+  {
+   "id": "gru_voos",
+   "pergunta": "quantos voos saíram de gru?",
+   "rota": "template",
+   "passos": [],
+   "planos": [],
+   "tipo": "consulta",
+   "texto": "Saíram 147.976 voos de GUARULHOS (SBGR).",
+   "sql": "SELECT SUM(f.voos) AS voos\nFROM fato_voos f\nWHERE f.icao_origem = 'SBGR'\nLIMIT 1",
+   "linhas": [
+    {
+     "voos": 147976
+    }
+   ],
+   "erro": null,
+   "plano": {
+    "tipo": "consulta",
+    "sql": "SELECT SUM(f.voos) AS voos\nFROM fato_voos f\nWHERE f.icao_origem = 'SBGR'\nLIMIT 1",
+    "grafico": "tabela",
+    "x": "voos",
+    "y": "voos",
+    "unidade": "voos",
+    "titulo": "Partidas — GUARULHOS (SBGR)",
+    "aviso": "",
+    "frase": "Saíram {voos} voos de GUARULHOS (SBGR).",
+    "serie": "",
+    "resposta": ""
+   },
+   "origem_texto": "modelo",
+   "segundos": 0.0055
+  },
+  {
+   "id": "cgh_otp",
+   "pergunta": "qual a pontualidade de congonhas?",
+   "rota": "template",
+   "passos": [],
+   "planos": [],
+   "tipo": "consulta",
+   "texto": "A pontualidade de partida em SÃO PAULO (SBSP) é de 80,6%, sobre 93.061 voos realizados.",
+   "sql": "SELECT 100.0 * SUM(f.partidas_pontuais) / NULLIF(SUM(f.realizados), 0) AS otp, SUM(f.realizados) AS realizados\nFROM fato_voos f\nWHERE f.icao_origem = 'SBSP' AND f.ano_mes IS NOT NULL\nLIMIT 1",
+   "linhas": [
+    {
+     "otp": 80.58155403445052,
+     "realizados": 93061
+    }
+   ],
+   "erro": null,
+   "plano": {
+    "tipo": "consulta",
+    "sql": "SELECT 100.0 * SUM(f.partidas_pontuais) / NULLIF(SUM(f.realizados), 0) AS otp, SUM(f.realizados) AS realizados\nFROM fato_voos f\nWHERE f.icao_origem = 'SBSP' AND f.ano_mes IS NOT NULL\nLIMIT 1",
+    "grafico": "tabela",
+    "x": "realizados",
+    "y": "otp",
+    "unidade": "%",
+    "titulo": "OTP de partida — SÃO PAULO (SBSP)",
+    "aviso": "Sem os 30.800 voos sem data de partida prevista, que não podem ser pontuais.",
+    "frase": "A pontualidade de partida em SÃO PAULO (SBSP) é de {otp}, sobre {realizados} voos realizados.",
+    "serie": "",
+    "resposta": ""
+   },
+   "origem_texto": "modelo",
+   "segundos": 0.0071
+  },
+  {
+   "id": "dez_voos",
+   "pergunta": "quantos voos teve em dezembro de 2025?",
+   "rota": "template",
+   "passos": [],
+   "planos": [],
+   "tipo": "consulta",
+   "texto": "Foram 85.452 voos em dez/2025.",
+   "sql": "SELECT SUM(f.voos) AS voos\nFROM fato_voos f\nWHERE f.ano_mes = '2025-12'\nLIMIT 1",
+   "linhas": [
+    {
+     "voos": 85452
+    }
+   ],
+   "erro": null,
+   "plano": {
+    "tipo": "consulta",
+    "sql": "SELECT SUM(f.voos) AS voos\nFROM fato_voos f\nWHERE f.ano_mes = '2025-12'\nLIMIT 1",
+    "grafico": "tabela",
+    "x": "voos",
+    "y": "voos",
+    "unidade": "voos",
+    "titulo": "Voos — dez/2025",
+    "aviso": "",
+    "frase": "Foram {voos} voos em dez/2025.",
+    "serie": "",
+    "resposta": ""
+   },
+   "origem_texto": "modelo",
+   "segundos": 0.0045
+  },
+  {
+   "id": "azul_cancel",
+   "pergunta": "qual a taxa de cancelamento da azul?",
+   "rota": "template",
+   "passos": [],
+   "planos": [],
+   "tipo": "consulta",
+   "texto": "A taxa de cancelamento da AZUL é de 2,2%, com 6.497 voos cancelados.",
+   "sql": "SELECT SUM(f.cancelados) AS cancelados, 100.0 * SUM(f.cancelados) / NULLIF(SUM(f.voos), 0) AS taxa\nFROM fato_voos f\nJOIN dim_empresa e ON f.icao_empresa = e.icao_empresa\nWHERE e.marca = 'AZUL'\nLIMIT 1",
+   "linhas": [
+    {
+     "cancelados": 6497,
+     "taxa": 2.1753032601089495
+    }
+   ],
+   "erro": null,
+   "plano": {
+    "tipo": "consulta",
+    "sql": "SELECT SUM(f.cancelados) AS cancelados, 100.0 * SUM(f.cancelados) / NULLIF(SUM(f.voos), 0) AS taxa\nFROM fato_voos f\nJOIN dim_empresa e ON f.icao_empresa = e.icao_empresa\nWHERE e.marca = 'AZUL'\nLIMIT 1",
+    "grafico": "tabela",
+    "x": "taxa",
+    "y": "taxa",
+    "unidade": "%",
+    "titulo": "Taxa de cancelamento — AZUL",
+    "aviso": "A marca AZUL soma 2 operadoras do grupo.",
+    "frase": "A taxa de cancelamento da AZUL é de {taxa}, com {cancelados} voos cancelados.",
+    "serie": "",
+    "resposta": ""
+   },
+   "origem_texto": "modelo",
+   "segundos": 0.0102
+  },
+  {
+   "id": "latam_mes",
+   "pergunta": "voos por mês da latam",
+   "rota": "template",
+   "passos": [],
+   "planos": [],
+   "tipo": "consulta",
+   "texto": "Os voos por mês da LATAM variaram de 24.259, em fev/2026, a 28.629, em jul/2026.",
+   "sql": "SELECT t.nome_mes AS mes, SUM(f.voos) AS voos\nFROM fato_voos f\nJOIN dim_empresa e ON f.icao_empresa = e.icao_empresa\nJOIN dim_tempo t ON f.ano_mes = t.ano_mes\nWHERE t.dias_com_voo >= 28 AND e.marca = 'LATAM'\nGROUP BY t.nome_mes, t.ordem\nORDER BY t.ordem\nLIMIT 20",
+   "linhas": [
+    {
+     "mes": "ago/2025",
+     "voos": 26587
+    },
+    {
+     "mes": "set/2025",
+     "voos": 25847
+    },
+    {
+     "mes": "out/2025",
+     "voos": 26286
+    },
+    {
+     "mes": "nov/2025",
+     "voos": 25271
+    },
+    {
+     "mes": "dez/2025",
+     "voos": 26918
+    },
+    {
+     "mes": "jan/2026",
+     "voos": 27895
+    },
+    {
+     "mes": "fev/2026",
+     "voos": 24259
+    },
+    {
+     "mes": "mar/2026",
+     "voos": 26765
+    },
+    {
+     "mes": "abr/2026",
+     "voos": 24577
+    },
+    {
+     "mes": "mai/2026",
+     "voos": 26223
+    },
+    {
+     "mes": "jun/2026",
+     "voos": 25498
+    },
+    {
+     "mes": "jul/2026",
+     "voos": 28629
+    }
+   ],
+   "erro": null,
+   "plano": {
+    "tipo": "consulta",
+    "sql": "SELECT t.nome_mes AS mes, SUM(f.voos) AS voos\nFROM fato_voos f\nJOIN dim_empresa e ON f.icao_empresa = e.icao_empresa\nJOIN dim_tempo t ON f.ano_mes = t.ano_mes\nWHERE t.dias_com_voo >= 28 AND e.marca = 'LATAM'\nGROUP BY t.nome_mes, t.ordem\nORDER BY t.ordem\nLIMIT 20",
+    "grafico": "linha",
+    "x": "mes",
+    "y": "voos",
+    "unidade": "voos",
+    "titulo": "Voos por mês — LATAM",
+    "aviso": "A marca LATAM soma 4 operadoras do grupo. Só meses completos.",
+    "frase": "Os voos por mês da LATAM variaram de {menor.voos}, em {menor.rotulo}, a {maior.voos}, em {maior.rotulo}.",
+    "serie": "",
+    "resposta": ""
+   },
+   "origem_texto": "modelo",
+   "segundos": 0.0146
+  },
+  {
+   "id": "rota_top",
+   "pergunta": "qual a rota com mais voos?",
+   "rota": "ia",
+   "medida": false,
+   "passos": [],
+   "planos": [],
+   "segundos": null,
+   "motivo_ia": "sobrou \"rota\""
+  },
+  {
+   "id": "atraso_aero",
+   "pergunta": "quais aeroportos têm o maior atraso médio?",
+   "rota": "ia",
+   "medida": false,
+   "passos": [],
+   "planos": [],
+   "segundos": null,
+   "motivo_ia": "sobrou \"maior\""
+  },
+  {
+   "id": "dist_media",
+   "pergunta": "qual a distância média dos voos?",
+   "rota": "ia",
+   "medida": false,
+   "passos": [],
+   "planos": [],
+   "segundos": null,
+   "motivo_ia": "sobrou \"distancia\""
+  },
+  {
+   "id": "estr_top",
+   "pergunta": "qual empresa estrangeira mais voa no brasil?",
+   "rota": "ia",
+   "medida": false,
+   "passos": [],
+   "planos": [],
+   "segundos": null,
+   "motivo_ia": "sobrou \"estrangeira\""
+  },
+  {
+   "id": "cancel_periodo",
+   "pergunta": "em que período do dia há mais cancelamentos?",
+   "rota": "ia",
+   "medida": false,
+   "passos": [],
+   "planos": [],
+   "segundos": null,
+   "motivo_ia": "sobrou \"periodo\""
+  },
+  {
+   "id": "fds",
+   "pergunta": "a pontualidade é melhor no fim de semana?",
+   "rota": "ia",
+   "medida": false,
+   "passos": [],
+   "planos": [],
+   "segundos": null,
+   "motivo_ia": "sobrou \"melhor\""
+  },
+  {
+   "id": "seguimento_mg",
+   "pergunta": "e em minas gerais?",
+   "rota": "ia",
+   "medida": false,
+   "passos": [],
+   "planos": [],
+   "segundos": null,
+   "motivo_ia": "continua a conversa"
+  }
+ ]
+}
