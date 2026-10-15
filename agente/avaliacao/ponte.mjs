@@ -18,11 +18,24 @@ const conhecimento = {
 };
 let roteador = null;
 
+/* O histórico das perguntas da avaliação vem sem a receita, que a página guarda quando o
+   roteador responde um turno. Refaz o caminho turno a turno, para o roteador ver o que veria
+   na página. */
+function comReceitas(historico) {
+  const feitos = [];
+  for (const h of historico) {
+    const receita = "receita" in h ? h.receita : roteador.rotear(h.pergunta, { historico: feitos }).receita ?? null;
+    feitos.push({ ...h, receita });
+  }
+  return feitos;
+}
+
 const ops = {
   iniciar: ({ dims }) => { roteador = criarRoteador(conhecimento, dims); return { ok: true }; },
   rotear: ({ pergunta, historico }) => {
+    const hist = comReceitas(historico ?? []);
     const t0 = performance.now();
-    const r = roteador.rotear(pergunta, { historico: historico ?? [] });
+    const r = roteador.rotear(pergunta, { historico: hist });
     return { ...r, ms: performance.now() - t0 };
   },
   narrar: ({ plano, linhas, pergunta }) => narrador.narrar(plano, linhas, { fatos: conhecimento.fatos, pergunta }),

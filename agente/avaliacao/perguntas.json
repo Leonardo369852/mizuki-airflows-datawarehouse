@@ -553,8 +553,8 @@
     {
       "id": "seguimento_mg",
       "pergunta": "e em minas gerais?",
-      "rota": "ia",
-      "nota": "continuação: só faz sentido com a conversa anterior",
+      "rota": "template",
+      "nota": "continuação de um template: troca o estado e mantém a medida",
       "historico": [
         {
           "pergunta": "voos em sao paulo, todos",
@@ -584,6 +584,59 @@
             "sql": "SELECT SUM(f.voos) AS total FROM fato_voos f JOIN dim_aerodromo a ON f.icao_origem = a.icao WHERE a.uf = 'MG'",
             "valores": {
               "total": 69245
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "seguimento_sentidos",
+      "pergunta": "e de Minas?",
+      "rota": "template",
+      "nota": "o caso que falhou em produção: continuação da pergunta pronta de São Paulo, que troca o lugar e mantém a comparação dos dois sentidos",
+      "historico": [
+        {
+          "pergunta": "chegar de Sao Paulo é pior que sair?",
+          "sql": "WITH sp AS (SELECT 'SBGR' AS icao UNION ALL SELECT 'SBSP'),\nsaindo AS (\n  SELECT f.icao_destino AS ponta,\n         100.0 * SUM(f.partidas_pontuais) / NULLIF(SUM(f.realizados), 0) AS otp,\n         SUM(f.realizados) AS n\n  FROM fato_voos f WHERE f.icao_origem IN (SELECT icao FROM sp)\n  GROUP BY f.icao_destino),\nchegando AS (\n  SELECT f.icao_origem AS ponta,\n         100.0 * SUM(f.partidas_pontuais) / NULLIF(SUM(f.realizados), 0) AS otp,\n         SUM(f.realizados) AS n\n  FROM fato_voos f WHERE f.icao_destino IN (SELECT icao FROM sp)\n  GROUP BY f.icao_origem)\nSELECT a.rotulo AS rota, s.otp AS saindo, c.otp AS chegando\nFROM saindo s JOIN chegando c ON s.ponta = c.ponta\nJOIN dim_aerodromo a ON a.icao = s.ponta\nWHERE s.n >= 1500 AND c.n >= 1500\nORDER BY (c.otp - s.otp) DESC\nLIMIT 14",
+          "amostra": [
+            {
+              "rota": "SÃO LUÍS",
+              "saindo": 64.98422712933754,
+              "chegando": 81.44712430426716
+            },
+            {
+              "rota": "FORTALEZA",
+              "saindo": 67.72046589018302,
+              "chegando": 83.20405255659333
+            },
+            {
+              "rota": "SAEZ",
+              "saindo": 53.72945638432364,
+              "chegando": 69.04176904176904
+            }
+          ],
+          "total": 14,
+          "resposta": "Na rota com a maior diferença, SÃO LUÍS, a pontualidade é de 65,0% saindo de GRU/CGH contra 81,4% chegando."
+        }
+      ],
+      "esperado": {
+        "alternativas": [
+          {
+            "nota": "aeroportos de MG, sem voo MG–MG",
+            "sql": "WITH lugar AS (SELECT icao FROM dim_aerodromo WHERE uf = 'MG'), saindo AS (SELECT f.icao_destino AS ponta, 100.0 * SUM(f.partidas_pontuais) / NULLIF(SUM(f.realizados), 0) AS otp, SUM(f.realizados) AS n FROM fato_voos f WHERE f.icao_origem IN (SELECT icao FROM lugar) AND f.icao_destino NOT IN (SELECT icao FROM lugar) GROUP BY f.icao_destino), chegando AS (SELECT f.icao_origem AS ponta, 100.0 * SUM(f.partidas_pontuais) / NULLIF(SUM(f.realizados), 0) AS otp, SUM(f.realizados) AS n FROM fato_voos f WHERE f.icao_destino IN (SELECT icao FROM lugar) AND f.icao_origem NOT IN (SELECT icao FROM lugar) GROUP BY f.icao_origem), rotas AS (SELECT a.rotulo AS rota, s.otp AS saindo, c.otp AS chegando FROM saindo s JOIN chegando c ON s.ponta = c.ponta JOIN dim_aerodromo a ON a.icao = s.ponta WHERE s.n >= 1500 AND c.n >= 1500) SELECT rota AS rotulo_rota, saindo, chegando FROM rotas ORDER BY ABS(chegando - saindo) DESC LIMIT 1",
+            "valores": {
+              "rotulo_rota": "GUARULHOS",
+              "saindo": 79.569249,
+              "chegando": 71.625511
+            }
+          },
+          {
+            "nota": "aeroportos de MG, com voo MG–MG",
+            "sql": "WITH lugar AS (SELECT icao FROM dim_aerodromo WHERE uf = 'MG'), saindo AS (SELECT f.icao_destino AS ponta, 100.0 * SUM(f.partidas_pontuais) / NULLIF(SUM(f.realizados), 0) AS otp, SUM(f.realizados) AS n FROM fato_voos f WHERE f.icao_origem IN (SELECT icao FROM lugar) GROUP BY f.icao_destino), chegando AS (SELECT f.icao_origem AS ponta, 100.0 * SUM(f.partidas_pontuais) / NULLIF(SUM(f.realizados), 0) AS otp, SUM(f.realizados) AS n FROM fato_voos f WHERE f.icao_destino IN (SELECT icao FROM lugar) GROUP BY f.icao_origem), rotas AS (SELECT a.rotulo AS rota, s.otp AS saindo, c.otp AS chegando FROM saindo s JOIN chegando c ON s.ponta = c.ponta JOIN dim_aerodromo a ON a.icao = s.ponta WHERE s.n >= 1500 AND c.n >= 1500) SELECT rota AS rotulo_rota, saindo, chegando FROM rotas ORDER BY ABS(chegando - saindo) DESC LIMIT 1",
+            "valores": {
+              "rotulo_rota": "GUARULHOS",
+              "saindo": 79.569249,
+              "chegando": 71.625511
             }
           }
         ]

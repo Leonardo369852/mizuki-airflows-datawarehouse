@@ -717,8 +717,10 @@ async function carregarConhecimento() {
   NARRADOR = narrador;
   CONHECIMENTO = { montar, semantica, identidade, apelidos,
                    exemplos: exemplos.exemplos, fatos: fatos.fatos };
+  /* A receita de seguimento vai junto com o plano da pronta: depois dela, "e de Minas?" sai
+     do roteador, sem IA. */
   SUGESTOES = CONHECIMENTO.exemplos.filter(e => e.chip)
-    .map(e => ({ p: e.pergunta, ...montar.planoDoExemplo(e, CONHECIMENTO.fatos) }));
+    .map(e => ({ p: e.pergunta, ...montar.planoDoExemplo(e, CONHECIMENTO.fatos), receita: e.seguimento ?? null }));
   MOD_ROTEADOR = roteador;
   ROTEADOR = roteador.criarRoteador(CONHECIMENTO, DIMENSOES);
   return CONHECIMENTO;
@@ -835,7 +837,9 @@ async function pedirPlano(pergunta, signal, hist = historico, { semCache = false
     const r = await fetch(WORKER + "/consulta", {
       method: "POST", signal,
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ pergunta, historico: hist, ...(semCache ? { semCache: true } : {}) })
+      /* A receita é do roteador da página; o Worker não precisa dela. */
+      body: JSON.stringify({ pergunta, historico: hist.map(({ receita, ...h }) => h),
+                             ...(semCache ? { semCache: true } : {}) })
     });
     const j = await r.json().catch(() => ({}));
     if (r.ok) return j;
@@ -1256,9 +1260,12 @@ async function ask(pergunta, planoPronto, opcoes = {}) {
     }
     await garantirBanco();
     if (rota?.motivo === "banco ainda não carregou") rota = ROTEADOR.rotear(pergunta, { historico });
-    /* Pergunta pronta dita de outro jeito, ou template sobre as dimensões: o plano já vem
-       montado, e segue o mesmo caminho das perguntas prontas — SQL aqui, texto da tabela. */
+    /* Pergunta pronta dita de outro jeito, template sobre as dimensões, ou seguimento de uma
+       resposta montada aqui ("e de Minas?"): o plano já vem montado, e segue o mesmo caminho
+       das perguntas prontas — SQL aqui, texto da tabela. A receita vai para o histórico, e é
+       dela que o roteador monta o seguimento seguinte. */
     if (rota?.rota === "pronta" || rota?.rota === "template") planoPronto = rota.plano;
+    const receita = rota ? rota.receita ?? null : planoPronto?.receita ?? null;
     const semIA = !!planoPronto;
     if (!planoPronto && !temLLM) {
       oferecerProntas(res, texto, pergunta, "Essa pergunta precisa da IA, que não está configurada "
@@ -1386,11 +1393,12 @@ async function ask(pergunta, planoPronto, opcoes = {}) {
       fala(texto, n.texto);
     }
 
-    /* O turno entra na conversa com o SQL e as primeiras linhas: é o que permite
+    /* O turno entra na conversa com o SQL, o gráfico e as primeiras linhas: é o que permite
        "e em fevereiro?" reaproveitar a consulta e "o que isso significa?" falar dos
-       números certos em vez de inventar. */
+       números certos em vez de inventar. Resposta montada aqui leva a receita junto. */
     registrar({ pergunta, sql: plano.sql, amostra: linhas.slice(0, 3),
-                total: linhas.length, resposta: texto.textContent });
+                total: linhas.length, resposta: texto.textContent,
+                grafico: plano.grafico, x: plano.x, y: plano.y, receita: semIA ? receita : null });
     aoFundo();
   } catch (e) {
     if (e.name === "AbortError") {

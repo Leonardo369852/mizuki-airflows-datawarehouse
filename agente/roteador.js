@@ -406,6 +406,124 @@ function plano(sql, grafico, x, y, unidade, titulo, avisos, fatos, frase = "") {
            aviso: preencher(avisos.join(" "), fatos), frase, serie: "", resposta: "" };
 }
 
+// ─── Mesma rota nos dois sentidos ─────────────────────────────────────────────
+
+/* Voos realizados que a rota precisa em CADA sentido para entrar: abaixo disso a pontualidade
+   de um sentido é ruído. É o mesmo corte da pergunta pronta de São Paulo. */
+const MINIMO_POR_SENTIDO = 1500;
+
+/**
+ * "Sair de <lugar> é pior que chegar?": a pontualidade da mesma rota nos dois sentidos, para um
+ * conjunto de aeroportos. A pergunta pronta é o caso de GRU/CGH; o seguimento ("e de Minas?")
+ * troca o lugar. Voo de dentro do conjunto para ele mesmo fica de fora: numa comparação por
+ * estado, Confins–Uberlândia sairia de Minas e chegaria em Minas ao mesmo tempo.
+ *
+ * A frase não diz que sair é pior: em SP é, nas 14 rotas, mas em MG só em 4 de 11. Ela diz onde
+ * a diferença é maior, e o gráfico mostra o resto.
+ */
+export function montarSentidos(lugar, dic, fatos) {
+  if (lugar.tipo === "municipio" && lugar.icaos?.length === 1) lugar = { tipo: "aeroporto", icao: lugar.icaos[0] };
+  let conjunto, nome;
+  if (lugar.icaos && lugar.rotulo) {                    /* a receita da pergunta pronta: GRU/CGH */
+    conjunto = lugar.icaos.map((i) => `SELECT '${i}' AS icao`).join(" UNION ALL ");
+    nome = lugar.rotulo;
+  } else if (lugar.tipo === "uf") {
+    /* Sem o IS NOT NULL, um ICAO nulo no conjunto faria todo NOT IN dar nulo, e o resultado
+       sair vazio sem erro. Hoje não há nenhum; um export futuro poderia ter. */
+    conjunto = `SELECT icao FROM dim_aerodromo WHERE uf = '${lugar.uf}' AND icao IS NOT NULL`;
+    nome = lugar.uf;
+  } else if (lugar.tipo === "municipio") {
+    conjunto = `SELECT icao FROM dim_aerodromo WHERE municipio = '${aspas(lugar.municipio)}' AND icao IS NOT NULL`;
+    nome = lugar.municipio;
+  } else {
+    const a = dic.aero.get(lugar.icao);
+    conjunto = `SELECT '${lugar.icao}' AS icao`;
+    nome = a?.municipio ? `${a.municipio} (${lugar.icao})` : lugar.icao;
+  }
+  const sql = [
+    `WITH lugar AS (${conjunto}),`,
+    "saindo AS (",
+    "  SELECT f.icao_destino AS ponta,",
+    "         100.0 * SUM(f.partidas_pontuais) / NULLIF(SUM(f.realizados), 0) AS otp,",
+    "         SUM(f.realizados) AS n",
+    "  FROM fato_voos f",
+    "  WHERE f.icao_origem IN (SELECT icao FROM lugar) AND f.icao_destino NOT IN (SELECT icao FROM lugar)",
+    "  GROUP BY f.icao_destino),",
+    "chegando AS (",
+    "  SELECT f.icao_origem AS ponta,",
+    "         100.0 * SUM(f.partidas_pontuais) / NULLIF(SUM(f.realizados), 0) AS otp,",
+    "         SUM(f.realizados) AS n",
+    "  FROM fato_voos f",
+    "  WHERE f.icao_destino IN (SELECT icao FROM lugar) AND f.icao_origem NOT IN (SELECT icao FROM lugar)",
+    "  GROUP BY f.icao_origem)",
+    /* O rótulo é o município, e o Rio tem três aeroportos: Galeão e Santos Dumont viravam duas
+       linhas "RIO DE JANEIRO". Rótulo repetido ganha o ICAO. */
+    "SELECT a.rotulo || CASE WHEN COUNT(*) OVER (PARTITION BY a.rotulo) > 1 THEN ' (' || a.icao || ')' ELSE '' END AS rota,",
+    "       s.otp AS saindo, c.otp AS chegando",
+    "FROM saindo s JOIN chegando c ON s.ponta = c.ponta",
+    "JOIN dim_aerodromo a ON a.icao = s.ponta",
+    `WHERE s.n >= ${MINIMO_POR_SENTIDO} AND c.n >= ${MINIMO_POR_SENTIDO}`,
+    "ORDER BY ABS(c.otp - s.otp) DESC",
+    "LIMIT 14",
+  ];
+  const aviso = `Só rotas com ${MINIMO_POR_SENTIDO.toLocaleString("pt-BR")} voos realizados ou mais em cada sentido`
+              + (lugar.tipo === "aeroporto" ? "." : `; voos de ${nome} para ${nome} ficam de fora.`);
+  /* Sem {n}: em oito estados só uma rota passa no corte, e saía "Entre as 1 rotas". */
+  const frase = `A maior diferença entre os dois sentidos é em {primeiro.rota}: `
+              + `{primeiro.saindo} saindo de ${nome} contra {primeiro.chegando} chegando.`;
+  return plano(sql, "halteres", "saindo", "chegando", "%", `OTP saindo de ${nome} contra chegando — mesmas rotas`,
+               [aviso], fatos, frase);
+}
+
+// ─── Seguimento: "e de Minas?" ────────────────────────────────────────────────
+
+/* O que pode acompanhar a entidade nova sem mudar o que se pede. "para" fica de fora de
+   propósito: "e para Salvador?" pode ser destino. */
+const SO_LIGA = new Set(["e", "de", "do", "da", "dos", "das", "em", "no", "na", "nos", "nas", "a", "o", "as", "os",
+                         "agora", "so", "tambem", "entao", "quanto", "sobre"]);
+const TIPOS_GEO = ["uf", "municipio", "aeroporto"];
+
+/**
+ * A pergunta que só troca a entidade da anterior — "e de Minas?", "e a GOL?", "e em dezembro?" —,
+ * quando a anterior foi respondida aqui. A `receita` é o que a página guardou daquela resposta:
+ * o template interpretado, ou o seguimento declarado na pergunta pronta (exemplos.json). Sobrou
+ * palavra que muda o pedido ("e a pior?", "e por mês?"), ou a receita não aceita aquela
+ * entidade: null, e a pergunta vai para a IA, que vê a conversa.
+ *
+ * Antes, todo seguimento ia para a IA. "e de Minas?", depois da pergunta pronta de São Paulo,
+ * falhou três vezes seguidas: o modelo de reserva devolveu a mesma resposta inválida a cada
+ * "tentar de novo".
+ */
+export function seguimento(n, original, receita, dic, fatos) {
+  if (!receita || !dic) return null;
+  const { mascarado, lista } = entidades(n, dic, original);
+  if (!lista.length || palavras(mascarado).some((p) => !p.startsWith("#") && !SO_LIGA.has(p))) return null;
+  const geo = lista.filter((e) => TIPOS_GEO.includes(e.tipo));
+  const marca = lista.filter((e) => e.tipo === "marca");
+  const mes = lista.filter((e) => e.tipo === "mes");
+  if (geo.length > 1 || marca.length > 1 || mes.length > 1) return null;
+  const aceita = new Set(receita.aceita ?? ["geo", "marca", "mes"]);
+  if ((geo.length && !aceita.has("geo")) || (marca.length && !aceita.has("marca")) || (mes.length && !aceita.has("mes"))) {
+    return null;
+  }
+
+  if (receita.tipo === "sentidos") {
+    if (!geo.length) return null;
+    return { rota: "template", motivo: "seguimento", plano: montarSentidos(geo[0], dic, fatos),
+             receita: { ...receita, lugar: geo[0] } };
+  }
+  if (receita.tipo === "template") {
+    const t = { ...receita.t };
+    if (geo.length) t.geo = geo[0];
+    if (marca.length) t.marca = marca[0];
+    if (mes.length) t.mes = mes[0];
+    if (t.serie && t.mes) return null;                   /* a mesma trava do interpretar() */
+    return { rota: "template", motivo: "seguimento", plano: montarTemplate(t, dic, fatos), entendido: t,
+             receita: { ...receita, t } };
+  }
+  return null;
+}
+
 // ─── O roteador ───────────────────────────────────────────────────────────────
 
 /* Semelhança não basta para chamar de "a mesma pergunta". "quantos voos teve em março de
@@ -427,8 +545,9 @@ const CONTINUACAO = /^(e|mas|agora|so|somente|apenas|tambem|entao|por|no|na|nos|
 const REFERENCIA = new Set(["isso", "isto", "desses", "dessas", "deles", "delas", "nesse", "nessa", "nesses",
                             "nessas", "esse", "essa", "esses", "essas", "mesmo", "mesma", "anterior", "acima"]);
 
-/** Com conversa em andamento, pergunta curta ou que aponta para trás continua a anterior: só a
-    IA, que vê o histórico, sabe o que "e em minas?" quer dizer. */
+/** Com conversa em andamento, pergunta curta ou que aponta para trás continua a anterior: ou ela
+    só troca a entidade de uma resposta montada aqui (seguimento), ou vai para a IA, que vê o
+    histórico. */
 function continuaAnterior(n) {
   const ps = palavras(n);
   return CONTINUACAO.test(n) && ps.length <= 6 || ps.some((p) => REFERENCIA.has(p));
@@ -458,7 +577,10 @@ export function criarRoteador(conhecimento, dims = null) {
     if (fixa) return fixa;
     const n = normalizar(pergunta).replace(SAUDACAO_NO_INICIO, "");
     if (!n) return { rota: "ia", motivo: "vazia" };
-    if (historico.length && continuaAnterior(n)) return { rota: "ia", motivo: "continua a conversa" };
+    if (historico.length && continuaAnterior(n)) {
+      return seguimento(n, pergunta, historico.at(-1)?.receita, dic, conhecimento.fatos)
+          ?? { rota: "ia", motivo: "continua a conversa" };
+    }
     if (!dic) return { rota: "ia", motivo: "banco ainda não carregou" };
 
     const { mascarado, lista } = entidades(n, dic, pergunta);
@@ -473,13 +595,18 @@ export function criarRoteador(conhecimento, dims = null) {
         melhor = { ...c, s };
       }
     }
+    /* A receita volta junto: a página a guarda no histórico, e é dela que sai o seguimento. */
     if (melhor) {
       return { rota: "pronta", plano: planoDoExemplo(melhor.ex, conhecimento.fatos),
-               exemplo: melhor.ex.pergunta, semelhanca: Number(melhor.s.toFixed(2)) };
+               exemplo: melhor.ex.pergunta, semelhanca: Number(melhor.s.toFixed(2)),
+               receita: melhor.ex.seguimento ?? null };
     }
 
     const t = interpretar(mascarado, lista);
-    if (!t.erro) return { rota: "template", plano: montarTemplate(t, dic, conhecimento.fatos), entendido: t };
+    if (!t.erro) {
+      return { rota: "template", plano: montarTemplate(t, dic, conhecimento.fatos), entendido: t,
+               receita: { tipo: "template", t } };
+    }
     return { rota: "ia", motivo: t.erro };
   }
 

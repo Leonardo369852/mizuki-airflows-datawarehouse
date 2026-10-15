@@ -1,5 +1,5 @@
 {
-  "sobre": "Pares pergunta → plano, no formato que o /consulta devolve, com a frase de resposta escrita com marcadores no lugar dos números. Os marcados chip aparecem como perguntas prontas na página e respondem sem IA; os demais ensinam o modelo os padrões em que ele já errou (uf é sigla, marca em vez de razão social, nome popular de aeroporto, distância com NULL, mês parcial, pergunta fora do grão). Todo SQL é executado por conferir.py. São diferentes, de propósito, das perguntas de agente/avaliacao/: a avaliação mede generalização, não decoreba. Número entre chaves vem de fatos.json.",
+  "sobre": "Pares pergunta → plano, no formato que o /consulta devolve, com a frase de resposta escrita com marcadores no lugar dos números. Os marcados chip aparecem como perguntas prontas na página e respondem sem IA; os demais ensinam o modelo os padrões em que ele já errou (uf é sigla, marca em vez de razão social, nome popular de aeroporto, distância com NULL, mês parcial, pergunta fora do grão). Todo SQL é executado por conferir.py. O seguimento de uma pronta é a receita para o roteador responder, sem IA, a pergunta que só troca o lugar, a empresa ou o mês dela ('e de Minas?'): aceita diz quais desses valem. São diferentes, de propósito, das perguntas de agente/avaliacao/: a avaliação mede generalização, não decoreba. Número entre chaves vem de fatos.json.",
   "exemplos": [
     {
       "pergunta": "Qual empresa tem a maior taxa de cancelamento?",
@@ -23,6 +23,7 @@
     {
       "pergunta": "Como a pontualidade variou mês a mês?",
       "chip": true,
+      "seguimento": { "tipo": "template", "t": { "medida": "otp", "serie": true }, "aceita": ["geo", "marca"] },
       "plano": {
         "tipo": "consulta", "grafico": "linha", "x": "mes", "y": "otp", "unidade": "%",
         "titulo": "OTP de partida por mês",
@@ -43,6 +44,7 @@
     {
       "pergunta": "Sair de São Paulo é pior que chegar?",
       "chip": true,
+      "seguimento": { "tipo": "sentidos", "lugar": { "icaos": ["SBGR", "SBSP"], "rotulo": "GRU/CGH" }, "aceita": ["geo"] },
       "plano": {
         "tipo": "consulta", "grafico": "halteres", "x": "saindo", "y": "chegando", "unidade": "%",
         "titulo": "OTP saindo de GRU/CGH contra chegando — mesmas rotas", "aviso": "",
@@ -73,6 +75,7 @@
     {
       "pergunta": "Quais aeroportos movimentam mais?",
       "chip": true,
+      "seguimento": { "tipo": "template", "t": { "medida": "voos" }, "aceita": ["geo"] },
       "plano": {
         "tipo": "consulta", "grafico": "mapa", "x": "longitude", "y": "latitude", "unidade": "voos",
         "titulo": "Partidas por aeródromo", "aviso": "",

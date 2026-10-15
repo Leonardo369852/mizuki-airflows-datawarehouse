@@ -1,19 +1,19 @@
 # Avaliação — final
 
-Worker `atual (offline)` · 2026-10-07T14:07:25
+Worker `atual (offline)` · 2026-10-15T16:06:44
 
 | Medida | Valor |
 |---|---|
-| Perguntas corrigidas | 24 de 31 (7 vão à IA e não foram medidas nesta rodada) |
-| Acerto (o dado certo na tela) | 24 de 24 (100%) |
-| Acerto nas perguntas simples (rota esperada sem IA) | 24 de 24 (100%) |
-| Texto sem número inventado | 24 de 24 |
+| Perguntas corrigidas | 26 de 32 (6 vão à IA e não foram medidas nesta rodada) |
+| Acerto (o dado certo na tela) | 26 de 26 (100%) |
+| Acerto nas perguntas simples (rota esperada sem IA) | 26 de 26 (100%) |
+| Texto sem número inventado | 26 de 26 |
 | Texto do modelo barrado pelo verificador da página | 0 |
-| Latência das respondidas sem IA | p50 7 ms · p95 25 ms · máx 48 ms |
+| Latência das respondidas sem IA | p50 8 ms · p95 25 ms · máx 48 ms |
 | Latência das que foram à IA | - |
 | Chamadas ao provedor por pergunta | média 0,0 · máx 0 |
 | Requisições que o KV conta, por pergunta | média 0,0 |
-| Respondidas sem IA, das 31 perguntas | 24 (77%) |
+| Respondidas sem IA, das 32 perguntas | 26 (81%) |
 | Reserva atrasada disparou | 0 de 0 planos |
 | Planos que precisaram de mais de uma rodada | 0 |
 | Chamadas com raciocínio (thoughtsTokenCount > 0) | 0 de 0 |
@@ -32,27 +32,28 @@ Worker `atual (offline)` · 2026-10-07T14:07:25
 | por_dia | fixa | fixa | ✓ | 1 ms | 0 | 0 | - | - |
 | horario | fixa | fixa | ✓ | 0 ms | 0 | 0 | - | - |
 | cancel_taxa | pronta | pronta | ✓ | 48 ms | 0 | 0 | - | - |
-| otp_mes | pronta | pronta | ✓ | 20 ms | 0 | 0 | - | - |
+| otp_mes | pronta | pronta | ✓ | 18 ms | 0 | 0 | - | - |
 | aero_mov | pronta | pronta | ✓ | 25 ms | 0 | 0 | - | - |
 | madrugada | pronta | pronta | ✓ | 8 ms | 0 | 0 | - | - |
-| nac_estr | pronta | pronta | ✓ | 21 ms | 0 | 0 | - | - |
-| sp_sair | pronta | pronta | ✓ | 20 ms | 0 | 0 | - | - |
-| sp_todos | template | template | ✓ | 15 ms | 0 | 0 | - | - |
-| mg_partidas | template | template | ✓ | 14 ms | 0 | 0 | - | - |
-| latam_voos | template | template | ✓ | 12 ms | 0 | 0 | - | - |
-| gol_otp | template | template | ✓ | 9 ms | 0 | 0 | - | - |
-| gru_voos | template | template | ✓ | 6 ms | 0 | 0 | - | - |
-| cgh_otp | template | template | ✓ | 7 ms | 0 | 0 | - | - |
-| dez_voos | template | template | ✓ | 4 ms | 0 | 0 | - | - |
-| azul_cancel | template | template | ✓ | 10 ms | 0 | 0 | - | - |
-| latam_mes | template | template | ✓ | 15 ms | 0 | 0 | - | - |
+| nac_estr | pronta | pronta | ✓ | 18 ms | 0 | 0 | - | - |
+| sp_sair | pronta | pronta | ✓ | 19 ms | 0 | 0 | - | - |
+| sp_todos | template | template | ✓ | 14 ms | 0 | 0 | - | - |
+| mg_partidas | template | template | ✓ | 12 ms | 0 | 0 | - | - |
+| latam_voos | template | template | ✓ | 11 ms | 0 | 0 | - | - |
+| gol_otp | template | template | ✓ | 8 ms | 0 | 0 | - | - |
+| gru_voos | template | template | ✓ | 4 ms | 0 | 0 | - | - |
+| cgh_otp | template | template | ✓ | 5 ms | 0 | 0 | - | - |
+| dez_voos | template | template | ✓ | 3 ms | 0 | 0 | - | - |
+| azul_cancel | template | template | ✓ | 9 ms | 0 | 0 | - | - |
+| latam_mes | template | template | ✓ | 14 ms | 0 | 0 | - | - |
 | rota_top | ia | ia | — | - | 0 | 0 | - | - |
 | atraso_aero | ia | ia | — | - | 0 | 0 | - | - |
 | dist_media | ia | ia | — | - | 0 | 0 | - | - |
 | estr_top | ia | ia | — | - | 0 | 0 | - | - |
 | cancel_periodo | ia | ia | — | - | 0 | 0 | - | - |
 | fds | ia | ia | — | - | 0 | 0 | - | - |
-| seguimento_mg | ia | ia | — | - | 0 | 0 | - | - |
+| seguimento_mg | template | template | ✓ | 11 ms | 0 | 0 | - | - |
+| seguimento_sentidos | template | template | ✓ | 24 ms | 0 | 0 | - | - |
 
 ## Chamadas ao provedor, por modelo
 
@@ -163,3 +164,17 @@ JOIN dim_empresa e ON f.icao_empresa = e.icao_empresa
 JOIN dim_tempo t ON f.ano_mes = t.ano_mes
 WHERE t.dias_com_voo >= 28 AND e.marca = 'LATAM'
 GROUP BY t.n`
+- **seguimento_mg** (e em minas gerais?) — Os 16 aeroportos do estado de MG somam 69.245 partidas; o maior é CONFINS, com 56.874.
+  `SELECT a.rotulo AS aeroporto, SUM(f.voos) AS voos
+FROM fato_voos f
+JOIN dim_aerodromo a ON f.icao_origem = a.icao
+WHERE a.uf = 'MG'
+GROUP BY a.icao, a.rotulo
+ORDER BY voos DESC
+LIMIT 40`
+- **seguimento_sentidos** (e de Minas?) — A maior diferença entre os dois sentidos é em GUARULHOS: 79,6% saindo de MG contra 71,6% chegando.
+  `WITH lugar AS (SELECT icao FROM dim_aerodromo WHERE uf = 'MG' AND icao IS NOT NULL),
+saindo AS (
+  SELECT f.icao_destino AS ponta,
+         100.0 * SUM(f.partidas_pontuais) / NULLIF(SUM(f.realizados), 0) AS otp,
+        `

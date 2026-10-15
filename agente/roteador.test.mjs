@@ -127,6 +127,65 @@ test("com conversa em andamento, continuação vai para a IA", () => {
   assert.equal(rota("quantos voos a gol fez?", h).rota, "template", "pergunta inteira não é continuação");
 });
 
+/* O turno como a página guarda no histórico: com a receita da resposta montada aqui. */
+const turno = (pergunta, r) => ({ pergunta, sql: r.plano.sql, amostra: [], total: 1, receita: r.receita });
+
+test("seguimento: o caso do print, 'e de Minas?' depois da pronta de São Paulo", () => {
+  const sp = rota("chegar de Sao Paulo é pior que sair?");
+  assert.equal(sp.rota, "pronta");
+  assert.equal(sp.receita?.tipo, "sentidos");
+  const mg = rota("e de Minas?", [turno("chegar de Sao Paulo é pior que sair?", sp)]);
+  assert.equal(mg.rota, "template");
+  assert.equal(mg.motivo, "seguimento");
+  assert.match(mg.plano.sql, /WITH lugar AS \(SELECT icao FROM dim_aerodromo WHERE uf = 'MG' AND icao IS NOT NULL\)/);
+  assert.match(mg.plano.sql, /COUNT\(\*\) OVER \(PARTITION BY a\.rotulo\)/, "rótulo repetido ganha o ICAO");
+  assert.match(mg.plano.sql, /f\.icao_destino NOT IN \(SELECT icao FROM lugar\)/, "voo de MG para MG fica de fora");
+  assert.equal(mg.plano.grafico, "halteres");
+  assert.match(mg.plano.frase, /saindo de MG/);
+  assert.doesNotMatch(mg.plano.frase, /\d/, "número só por marcador");
+  const rj = rota("e do Rio de Janeiro?", [turno("x", sp), turno("e de Minas?", mg)]);
+  assert.match(rj.plano.sql, /uf = 'RJ'/, "o seguimento do seguimento");
+  const gru = rota("e de Guarulhos?", [turno("e de Minas?", mg)]);
+  assert.match(gru.plano.sql, /WITH lugar AS \(SELECT 'SBGR' AS icao\)/);
+});
+
+test("seguimento de template troca a entidade do mesmo tipo ou acrescenta outra", () => {
+  const sp = rota("voos em sao paulo, todos");
+  const h = [turno("voos em sao paulo, todos", sp)];
+  const mg = rota("e em minas gerais?", h);
+  assert.equal(mg.rota, "template");
+  assert.match(mg.plano.sql, /a\.uf = 'MG'/);
+  assert.doesNotMatch(mg.plano.sql, /'SP'/);
+  const gol = rota("e da gol?", h);
+  assert.match(gol.plano.sql, /a\.uf = 'SP'/);
+  assert.match(gol.plano.sql, /e\.marca = 'GOL'/);
+  const otp = rota("qual a pontualidade da gol?");
+  const h2 = [turno("qual a pontualidade da gol?", otp)];
+  assert.match(rota("e da azul?", h2).plano.sql, /e\.marca = 'AZUL'/);
+  assert.match(rota("e em dezembro?", h2).plano.sql, /f\.ano_mes = '2025-12'/);
+});
+
+test("seguimento que pede outra coisa, ou sem receita, vai para a IA", () => {
+  const sp = rota("chegar de Sao Paulo é pior que sair?");
+  const h = [turno("chegar de Sao Paulo é pior que sair?", sp)];
+  for (const p of ["e a pior?", "e por mês?", "e para Minas?", "e de Minas e do Rio?",
+                   "e da gol?", "e em dezembro?"]) {   /* a pronta de São Paulo só troca o lugar */
+    assert.equal(rota(p, h).rota, "ia", p);
+  }
+  const serie = rota("pontualidade da gol por mês");
+  assert.equal(rota("e em dezembro?", [turno("pontualidade da gol por mês", serie)]).rota, "ia", "série e mês juntos");
+  assert.equal(rota("e de Minas?", [{ pergunta: "x", sql: "SELECT 1", amostra: [], total: 1 }]).rota, "ia",
+               "resposta da IA não deixa receita");
+});
+
+test("toda receita de seguimento das prontas monta um plano", () => {
+  for (const ex of CONH.exemplos.filter((e) => e.seguimento)) {
+    const r = rota("e de Minas?", [{ pergunta: ex.pergunta, sql: "SELECT 1", amostra: [], total: 1, receita: ex.seguimento }]);
+    assert.equal(r.rota, "template", ex.pergunta);
+    assert.match(r.plano.sql, /'MG'/, ex.pergunta);
+  }
+});
+
 test("sugestões para quando a IA falha, e exemplos para o prompt", () => {
   const s = prontasParecidas("qual empresa cancela mais?", CONH.exemplos);
   assert.equal(s.length, 3);

@@ -1,6 +1,6 @@
 {
  "rodada": "final",
- "quando": "2026-10-07T14:07:25",
+ "quando": "2026-10-15T16:06:44",
  "worker": "atual (offline)",
  "chave_falsa": false,
  "saude": {},
@@ -95,7 +95,8 @@
   "estr_top": "ia",
   "cancel_periodo": "ia",
   "fds": "ia",
-  "seguimento_mg": "ia"
+  "seguimento_mg": "template",
+  "seguimento_sentidos": "template"
  },
  "resultados": [
   {
@@ -124,7 +125,7 @@
    "linhas": [],
    "erro": null,
    "intencao": "identidade",
-   "segundos": 0.0005
+   "segundos": 0.0004
   },
   {
    "id": "como",
@@ -166,7 +167,7 @@
    "linhas": [],
    "erro": null,
    "intencao": "ajuda",
-   "segundos": 0.0011
+   "segundos": 0.0009
   },
   {
    "id": "motivo",
@@ -180,7 +181,7 @@
    "linhas": [],
    "erro": null,
    "intencao": "fora_do_grao.motivo_cancelamento",
-   "segundos": 0.0008
+   "segundos": 0.0006
   },
   {
    "id": "voo_especifico",
@@ -194,7 +195,7 @@
    "linhas": [],
    "erro": null,
    "intencao": "fora_do_grao.voo_especifico",
-   "segundos": 0.001
+   "segundos": 0.0008
   },
   {
    "id": "por_dia",
@@ -208,7 +209,7 @@
    "linhas": [],
    "erro": null,
    "intencao": "fora_do_grao.por_dia",
-   "segundos": 0.0008
+   "segundos": 0.0009
   },
   {
    "id": "horario",
@@ -325,7 +326,7 @@
     "resposta": ""
    },
    "origem_texto": "modelo",
-   "segundos": 0.0485
+   "segundos": 0.048
   },
   {
    "id": "otp_mes",
@@ -413,7 +414,7 @@
     "resposta": ""
    },
    "origem_texto": "modelo",
-   "segundos": 0.0202
+   "segundos": 0.0179
   },
   {
    "id": "aero_mov",
@@ -905,7 +906,7 @@
     "resposta": ""
    },
    "origem_texto": "modelo",
-   "segundos": 0.0252
+   "segundos": 0.0246
   },
   {
    "id": "madrugada",
@@ -953,7 +954,7 @@
     "resposta": ""
    },
    "origem_texto": "modelo",
-   "segundos": 0.0077
+   "segundos": 0.0079
   },
   {
    "id": "nac_estr",
@@ -993,7 +994,7 @@
     "resposta": ""
    },
    "origem_texto": "modelo",
-   "segundos": 0.0207
+   "segundos": 0.0184
   },
   {
    "id": "sp_sair",
@@ -1091,7 +1092,7 @@
     "resposta": ""
    },
    "origem_texto": "modelo",
-   "segundos": 0.0204
+   "segundos": 0.019
   },
   {
    "id": "sp_todos",
@@ -1183,7 +1184,7 @@
     "resposta": ""
    },
    "origem_texto": "modelo",
-   "segundos": 0.0151
+   "segundos": 0.0144
   },
   {
    "id": "mg_partidas",
@@ -1275,7 +1276,7 @@
     "resposta": ""
    },
    "origem_texto": "modelo",
-   "segundos": 0.0136
+   "segundos": 0.0118
   },
   {
    "id": "latam_voos",
@@ -1319,7 +1320,7 @@
     "resposta": ""
    },
    "origem_texto": "modelo",
-   "segundos": 0.0119
+   "segundos": 0.0107
   },
   {
    "id": "gol_otp",
@@ -1351,7 +1352,7 @@
     "resposta": ""
    },
    "origem_texto": "modelo",
-   "segundos": 0.0089
+   "segundos": 0.0082
   },
   {
    "id": "gru_voos",
@@ -1382,7 +1383,7 @@
     "resposta": ""
    },
    "origem_texto": "modelo",
-   "segundos": 0.0055
+   "segundos": 0.004
   },
   {
    "id": "cgh_otp",
@@ -1414,7 +1415,7 @@
     "resposta": ""
    },
    "origem_texto": "modelo",
-   "segundos": 0.0071
+   "segundos": 0.0052
   },
   {
    "id": "dez_voos",
@@ -1445,7 +1446,7 @@
     "resposta": ""
    },
    "origem_texto": "modelo",
-   "segundos": 0.0045
+   "segundos": 0.0033
   },
   {
    "id": "azul_cancel",
@@ -1477,7 +1478,7 @@
     "resposta": ""
    },
    "origem_texto": "modelo",
-   "segundos": 0.0102
+   "segundos": 0.0087
   },
   {
    "id": "latam_mes",
@@ -1553,7 +1554,7 @@
     "resposta": ""
    },
    "origem_texto": "modelo",
-   "segundos": 0.0146
+   "segundos": 0.0144
   },
   {
    "id": "rota_top",
@@ -1618,12 +1619,177 @@
   {
    "id": "seguimento_mg",
    "pergunta": "e em minas gerais?",
-   "rota": "ia",
-   "medida": false,
+   "rota": "template",
    "passos": [],
    "planos": [],
-   "segundos": null,
-   "motivo_ia": "continua a conversa"
+   "tipo": "consulta",
+   "texto": "Os 16 aeroportos do estado de MG somam 69.245 partidas; o maior é CONFINS, com 56.874.",
+   "sql": "SELECT a.rotulo AS aeroporto, SUM(f.voos) AS voos\nFROM fato_voos f\nJOIN dim_aerodromo a ON f.icao_origem = a.icao\nWHERE a.uf = 'MG'\nGROUP BY a.icao, a.rotulo\nORDER BY voos DESC\nLIMIT 40",
+   "linhas": [
+    {
+     "aeroporto": "CONFINS",
+     "voos": 56874
+    },
+    {
+     "aeroporto": "UBERLÂNDIA",
+     "voos": 5687
+    },
+    {
+     "aeroporto": "MONTES CLAROS",
+     "voos": 1963
+    },
+    {
+     "aeroporto": "SANTANA DO PARAÍSO",
+     "voos": 1242
+    },
+    {
+     "aeroporto": "GOIANÁ",
+     "voos": 759
+    },
+    {
+     "aeroporto": "GOVERNADOR VALADARES",
+     "voos": 746
+    },
+    {
+     "aeroporto": "UBERABA",
+     "voos": 453
+    },
+    {
+     "aeroporto": "DIVINÓPOLIS",
+     "voos": 382
+    },
+    {
+     "aeroporto": "TEÓFILO OTONI",
+     "voos": 172
+    },
+    {
+     "aeroporto": "SALINAS",
+     "voos": 156
+    },
+    {
+     "aeroporto": "PATOS DE MINAS",
+     "voos": 153
+    },
+    {
+     "aeroporto": "VARGINHA",
+     "voos": 153
+    },
+    {
+     "aeroporto": "ARAXÁ",
+     "voos": 143
+    },
+    {
+     "aeroporto": "PARACATU",
+     "voos": 134
+    },
+    {
+     "aeroporto": "MANHUAÇU",
+     "voos": 133
+    },
+    {
+     "aeroporto": "BELO HORIZONTE",
+     "voos": 95
+    }
+   ],
+   "erro": null,
+   "plano": {
+    "tipo": "consulta",
+    "sql": "SELECT a.rotulo AS aeroporto, SUM(f.voos) AS voos\nFROM fato_voos f\nJOIN dim_aerodromo a ON f.icao_origem = a.icao\nWHERE a.uf = 'MG'\nGROUP BY a.icao, a.rotulo\nORDER BY voos DESC\nLIMIT 40",
+    "grafico": "barra_horizontal",
+    "x": "voos",
+    "y": "aeroporto",
+    "unidade": "voos",
+    "titulo": "Partidas por aeroporto — estado de MG",
+    "aviso": "Conta as partidas: os voos que saíram de lá.",
+    "frase": "Os {n} aeroportos do estado de MG somam {total.voos} partidas; o maior é {maior.rotulo}, com {maior.voos}.",
+    "serie": "",
+    "resposta": ""
+   },
+   "origem_texto": "modelo",
+   "segundos": 0.011
+  },
+  {
+   "id": "seguimento_sentidos",
+   "pergunta": "e de Minas?",
+   "rota": "template",
+   "passos": [],
+   "planos": [],
+   "tipo": "consulta",
+   "texto": "A maior diferença entre os dois sentidos é em GUARULHOS: 79,6% saindo de MG contra 71,6% chegando.",
+   "sql": "WITH lugar AS (SELECT icao FROM dim_aerodromo WHERE uf = 'MG' AND icao IS NOT NULL),\nsaindo AS (\n  SELECT f.icao_destino AS ponta,\n         100.0 * SUM(f.partidas_pontuais) / NULLIF(SUM(f.realizados), 0) AS otp,\n         SUM(f.realizados) AS n\n  FROM fato_voos f\n  WHERE f.icao_origem IN (SELECT icao FROM lugar) AND f.icao_destino NOT IN (SELECT icao FROM lugar)\n  GROUP BY f.icao_destino),\nchegando AS (\n  SELECT f.icao_origem AS ponta,\n         100.0 * SUM(f.partidas_pontuais) / NULLIF(SUM(f.realizados), 0) AS otp,\n         SUM(f.realizados) AS n\n  FROM fato_voos f\n  WHERE f.icao_destino IN (SELECT icao FROM lugar) AND f.icao_origem NOT IN (SELECT icao FROM lugar)\n  GROUP BY f.icao_origem)\nSELECT a.rotulo || CASE WHEN COUNT(*) OVER (PARTITION BY a.rotulo) > 1 THEN ' (' || a.icao || ')' ELSE '' END AS rota,\n       s.otp AS saindo, c.otp AS chegando\nFROM saindo s JOIN chegando c ON s.ponta = c.ponta\nJOIN dim_aerodromo a ON a.icao = s.ponta\nWHERE s.n >= 1500 AND c.n >= 1500\nORDER BY ABS(c.otp - s.otp) DESC\nLIMIT 14",
+   "linhas": [
+    {
+     "rota": "GUARULHOS",
+     "saindo": 79.56924917738559,
+     "chegando": 71.62551128616876
+    },
+    {
+     "rota": "SÃO PAULO",
+     "saindo": 85.36382536382537,
+     "chegando": 79.14244186046511
+    },
+    {
+     "rota": "RIO DE JANEIRO (SBRJ)",
+     "saindo": 89.94623655913979,
+     "chegando": 86.36853448275862
+    },
+    {
+     "rota": "RECIFE",
+     "saindo": 84.4335414808207,
+     "chegando": 81.00533807829181
+    },
+    {
+     "rota": "PORTO ALEGRE",
+     "saindo": 84.02640264026402,
+     "chegando": 85.42350623768877
+    },
+    {
+     "rota": "VITÓRIA",
+     "saindo": 85.45680546923555,
+     "chegando": 84.15300546448087
+    },
+    {
+     "rota": "PORTO SEGURO",
+     "saindo": 87.2686230248307,
+     "chegando": 86.07709750566893
+    },
+    {
+     "rota": "SALVADOR",
+     "saindo": 85.67059851463522,
+     "chegando": 86.82842287694974
+    },
+    {
+     "rota": "CAMPINAS",
+     "saindo": 80.07745266781411,
+     "chegando": 81.04317335086566
+    },
+    {
+     "rota": "BRASÍLIA",
+     "saindo": 84.5287873914442,
+     "chegando": 85.19243313763862
+    },
+    {
+     "rota": "RIO DE JANEIRO (SBGL)",
+     "saindo": 82.37254248583805,
+     "chegando": 81.82419035029743
+    }
+   ],
+   "erro": null,
+   "plano": {
+    "tipo": "consulta",
+    "sql": "WITH lugar AS (SELECT icao FROM dim_aerodromo WHERE uf = 'MG' AND icao IS NOT NULL),\nsaindo AS (\n  SELECT f.icao_destino AS ponta,\n         100.0 * SUM(f.partidas_pontuais) / NULLIF(SUM(f.realizados), 0) AS otp,\n         SUM(f.realizados) AS n\n  FROM fato_voos f\n  WHERE f.icao_origem IN (SELECT icao FROM lugar) AND f.icao_destino NOT IN (SELECT icao FROM lugar)\n  GROUP BY f.icao_destino),\nchegando AS (\n  SELECT f.icao_origem AS ponta,\n         100.0 * SUM(f.partidas_pontuais) / NULLIF(SUM(f.realizados), 0) AS otp,\n         SUM(f.realizados) AS n\n  FROM fato_voos f\n  WHERE f.icao_destino IN (SELECT icao FROM lugar) AND f.icao_origem NOT IN (SELECT icao FROM lugar)\n  GROUP BY f.icao_origem)\nSELECT a.rotulo || CASE WHEN COUNT(*) OVER (PARTITION BY a.rotulo) > 1 THEN ' (' || a.icao || ')' ELSE '' END AS rota,\n       s.otp AS saindo, c.otp AS chegando\nFROM saindo s JOIN chegando c ON s.ponta = c.ponta\nJOIN dim_aerodromo a ON a.icao = s.ponta\nWHERE s.n >= 1500 AND c.n >= 1500\nORDER BY ABS(c.otp - s.otp) DESC\nLIMIT 14",
+    "grafico": "halteres",
+    "x": "saindo",
+    "y": "chegando",
+    "unidade": "%",
+    "titulo": "OTP saindo de MG contra chegando — mesmas rotas",
+    "aviso": "Só rotas com 1.500 voos realizados ou mais em cada sentido; voos de MG para MG ficam de fora.",
+    "frase": "A maior diferença entre os dois sentidos é em {primeiro.rota}: {primeiro.saindo} saindo de MG contra {primeiro.chegando} chegando.",
+    "serie": "",
+    "resposta": ""
+   },
+   "origem_texto": "modelo",
+   "segundos": 0.0245
   }
  ]
 }

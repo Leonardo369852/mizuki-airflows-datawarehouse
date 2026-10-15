@@ -31,7 +31,7 @@ import identidade from "../conhecimento/identidade.json" with { type: "json" };
 import exemplosJson from "../conhecimento/exemplos.json" with { type: "json" };
 import fatosJson from "../conhecimento/fatos.json" with { type: "json" };
 import { promptConsulta, exemplosEmTexto } from "../conhecimento/montar.js";
-import { normalizar, exemplosParecidos } from "../roteador.js";
+import { normalizar, chaves, exemplosParecidos } from "../roteador.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Configuração
@@ -90,10 +90,18 @@ const GRAFICOS = [
 function historicoEmTexto(historico) {
   if (!Array.isArray(historico) || !historico.length) return "";
 
-  const turnos = historico.slice(-MAX_TURNOS_HISTORICO).map((h, i) => {
+  const turnos = historico.slice(-MAX_TURNOS_HISTORICO).map((h, i, todos) => {
     const l = [`[${i + 1}] Pergunta: ${String(h.pergunta ?? "").slice(0, 300)}`];
+    /* O SQL do último turno vai inteiro: é dele que "e de Minas?" parte. Cortado aos 420
+       caracteres, o modelo recebia a consulta de São Paulo pela metade — sem o SELECT final —
+       e tinha de reinventar o resto. */
     if (h.sql) {
-      l.push(`    SQL executado: ${String(h.sql).replace(/\s+/g, " ").slice(0, 420)}`);
+      const limite = i === todos.length - 1 ? 1500 : 420;
+      l.push(`    SQL executado: ${String(h.sql).replace(/\s+/g, " ").slice(0, limite)}`);
+    }
+    if (GRAFICOS.includes(h.grafico)) {
+      const x = APELIDO.test(String(h.x ?? "")) ? h.x : "", y = APELIDO.test(String(h.y ?? "")) ? h.y : "";
+      l.push(`    Gráfico: ${h.grafico}${x && y ? ` (x = ${x}, y = ${y})` : ""}`);
     }
     if (Array.isArray(h.amostra) && h.amostra.length) {
       l.push(`    Resultado (${h.total ?? h.amostra.length} linhas, primeiras): `
@@ -131,12 +139,12 @@ const PROVEDORES = {
       return `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:${metodo}key=${chave}`;
     },
 
-    corpo({ sistema, usuario, esquema, maxTokens }) {
+    corpo({ sistema, usuario, esquema, maxTokens, temperatura }) {
       return {
         systemInstruction: { parts: [{ text: sistema }] },
         contents: [{ role: "user", parts: [{ text: usuario }] }],
         generationConfig: {
-          temperature: 0,
+          temperature: temperatura ?? 0,
           maxOutputTokens: maxTokens,
           // Os Gemini 3.x pensam por padrão, e o raciocínio consome maxOutputTokens antes
           // de sobrar texto: com o budget ligado, 3.6-flash e 3.5-flash devolviam resposta
@@ -152,6 +160,11 @@ const PROVEDORES = {
 
     texto(json) {
       return json?.candidates?.[0]?.content?.parts?.map((p) => p.text).join("") ?? "";
+    },
+
+    /* Por que a geração parou: "STOP", ou "MAX_TOKENS" quando o teto cortou a resposta. */
+    fim(json) {
+      return json?.candidates?.[0]?.finishReason ?? null;
     },
 
     // Um chunk de SSE do Gemini é um JSON completo com o delta em parts[].text.
@@ -177,11 +190,11 @@ const PROVEDORES = {
       };
     },
 
-    corpo({ sistema, usuario, esquema, maxTokens, stream }) {
+    corpo({ sistema, usuario, esquema, maxTokens, stream, temperatura }) {
       return {
         model: this.modelo,
         max_tokens: maxTokens,
-        temperature: 0,
+        temperature: temperatura ?? 0,
         // Marca o schema para cache: é a parte fixa e grande do prompt. Até 90% de desconto
         // na releitura, e é ela que domina os tokens de entrada.
         system: [{ type: "text", text: sistema, cache_control: { type: "ephemeral" } }],
@@ -201,6 +214,10 @@ const PROVEDORES = {
       const bloco = json?.content?.find((c) => c.type === "tool_use");
       if (bloco) return JSON.stringify(bloco.input);
       return json?.content?.filter((c) => c.type === "text").map((c) => c.text).join("") ?? "";
+    },
+
+    fim(json) {
+      return json?.stop_reason ?? null;
     },
 
     delta(json) {
@@ -313,18 +330,19 @@ const depois = (ctx, promessa) => (ctx?.waitUntil ? ctx.waitUntil(promessa) : pr
  * e oferece as perguntas prontas. Passada a pausa, a próxima pergunta testa de novo — e se ela
  * falhar, a pausa volta sem esperar outras três.
  */
-function contabilizar(dia, env, { registro = [], uso = null, modelo = null, reserva = null, falhou = null }) {
+function contabilizar(dia, env, { registro = [], reserva = null, falhou = null }) {
   dia.perguntas += 1;
+  /* Os tokens de toda tentativa que voltou com corpo, não só da que venceu: uma resposta
+     inválida também gastou. */
   for (const c of registro) {
     const m = (dia.chamadas[c.modelo] ??= {});
     m[c.desfecho] = (m[c.desfecho] ?? 0) + 1;
-  }
-  if (uso && modelo) {
-    const t = (dia.tokens[modelo] ??= { n: 0, entrada: 0, raciocinio: 0, saida: 0 });
+    if (!c.uso) continue;
+    const t = (dia.tokens[c.modelo] ??= { n: 0, entrada: 0, raciocinio: 0, saida: 0 });
     t.n += 1;
-    t.entrada += uso.promptTokenCount ?? 0;
-    t.raciocinio += uso.thoughtsTokenCount ?? 0;
-    t.saida += uso.candidatesTokenCount ?? 0;
+    t.entrada += c.uso.promptTokenCount ?? 0;
+    t.raciocinio += c.uso.thoughtsTokenCount ?? 0;
+    t.saida += c.uso.candidatesTokenCount ?? 0;
   }
   if (reserva?.disparou) dia.reserva.disparou += 1;
   if (reserva?.venceu) dia.reserva.venceu += 1;
@@ -410,9 +428,18 @@ const ATRASO_RESERVA_PADRAO = 6000;
 const PRAZO_CONSULTA_PADRAO = 20000;
 const RODADAS_PADRAO = 2;              /* espera de 1,5 s entre elas */
 const ESPERA_RODADA_PADRAO = 1500;
+/* OUTRA AMOSTRA. Com temperatura 0, a mesma pergunta com a mesma conversa devolve a mesma
+   resposta: "e de Minas?" voltou inválida três vezes, idêntica, e o "tentar de novo" não tinha
+   como dar outro resultado. O modelo que errou o conteúdo volta, na rodada seguinte, com esta
+   temperatura; o "tentar de novo" da página já começa com ela. */
+const TEMPERATURA_VARIADA = 0.4;
 
+/**
+ * `aceitar(corpo, p, modelo)` (opcional) confere o conteúdo de uma resposta 200 dentro da
+ * tentativa: devolve {valor} ou {motivo, desfecho}. Sem ele, qualquer 200 vence.
+ */
 async function chamar(env, { sistema, usuario, esquema, maxTokens, stream, modeloForcado,
-                              atrasoReserva, insistir, prazoTotal, registro = [] }) {
+                              atrasoReserva, insistir, prazoTotal, registro = [], aceitar, variar = false }) {
   const { p, chave } = resolverProvedor(env);
   const prazoTentativa = Number(env.PRAZO_TENTATIVA_MS ?? PRAZO_POR_TENTATIVA_PADRAO);
   const limite = Date.now() + Number(prazoTotal ?? env.PRAZO_TOTAL_MS ?? PRAZO_TOTAL_PADRAO);
@@ -432,18 +459,20 @@ async function chamar(env, { sistema, usuario, esquema, maxTokens, stream, model
   let viuCota = false;
   /* Último status de cada modelo nesta pergunta: decide quem volta na rodada seguinte. */
   const estado = new Map();
+  /* Modelos que já devolveram conteúdo inválido nesta pergunta: voltam com outra amostra. */
+  const invalidos = new Set();
 
-  /* Uma tentativa num modelo. Nunca rejeita: devolve {ok, resposta, modelo, ctl} ou
+  /* Uma tentativa num modelo. Nunca rejeita: devolve {ok, resposta ou valor, modelo, ctl} ou
      {ok: false, erro}, para a corrida abaixo tratar sucesso e falha do mesmo jeito. Cada
      tentativa vai para o `registro` com o desfecho — o status HTTP, "tempo" (o prazo dela
-     acabou) ou "perdeu" (outra respondeu antes) —, que é o que a cota do provedor de fato
-     gasta. */
-  async function tentar(modelo, ctl) {
+     acabou), "perdeu" (outra respondeu antes), "invalido" ou "cortada" (200 sem o que se
+     pediu) —, que é o que a cota do provedor de fato gasta. */
+  async function tentar(modelo, ctl, temperatura) {
     const inicio = Date.now();
-    ctl.anotar = (desfecho) => {
+    ctl.anotar = (desfecho, uso = null) => {
       if (ctl.anotada) return;
       ctl.anotada = true;
-      registro.push({ modelo, desfecho, ms: Date.now() - inicio });
+      registro.push({ modelo, desfecho, ms: Date.now() - inicio, ...(uso ? { uso } : {}) });
     };
     /* O prazo vale até a resposta COMEÇAR. Com AbortSignal.timeout ele valia também
        para o corpo, e numa resposta em streaming um prazo curto cortaria o texto no
@@ -456,11 +485,31 @@ async function chamar(env, { sistema, usuario, esquema, maxTokens, stream, model
         method: "POST",
         headers: p.cabecalhos ? p.cabecalhos(chave) : { "content-type": "application/json" },
         body: JSON.stringify(
-          p.corpo.call({ ...p, modelo }, { sistema, usuario, esquema, maxTokens, stream }),
+          p.corpo.call({ ...p, modelo }, { sistema, usuario, esquema, maxTokens, stream, temperatura }),
         ),
         /* Sem isto, um upstream pendurado consome sozinho todo o prazo total. */
         signal: ctl.signal,
       });
+      /* 200 não basta: o corpo tem de trazer o que se pediu. Conferido aqui, dentro da
+         tentativa, uma resposta inválida conta como falha DESTE modelo e a próxima tentativa
+         entra — antes ela virava o fim da pergunta, com o 502 "o modelo não devolveu um plano
+         válido" na tela. */
+      if (resposta.ok && aceitar) {
+        const corpo = await resposta.json().catch(() => null);
+        clearTimeout(relogio);
+        if (ctl.signal.aborted) {
+          return { ok: false, erro: Object.assign(new Error(`${modelo}: sem resposta a tempo`), { status: 503 }) };
+        }
+        const uso = corpo?.usageMetadata ?? null;
+        const lido = aceitar(corpo, p, modelo);
+        if (lido.valor !== undefined) {
+          ctl.anotar("200", uso);
+          return { ok: true, valor: lido.valor, modelo, ctl };
+        }
+        ctl.anotar(lido.desfecho ?? "invalido", uso);
+        return { ok: false, erro: Object.assign(new Error(`${modelo}: ${lido.motivo}`),
+                                                { status: 502, invalido: true }) };
+      }
       clearTimeout(relogio);
       ctl.anotar(String(resposta.status));
       if (resposta.ok) return { ok: true, resposta, modelo, ctl };
@@ -495,7 +544,8 @@ async function chamar(env, { sistema, usuario, esquema, maxTokens, stream, model
       if (proximo >= candidatos.length || limite - Date.now() < minimoUtil) return false;
       const ctl = new AbortController();
       const modelo = candidatos[proximo++];
-      const promessa = tentar(modelo, ctl).then((r) => ({ promessa, r, modelo }));
+      const temperatura = variar || invalidos.has(modelo) ? TEMPERATURA_VARIADA : 0;
+      const promessa = tentar(modelo, ctl, temperatura).then((r) => ({ promessa, r, modelo }));
       correndo.set(promessa, ctl);
       return true;
     };
@@ -534,6 +584,7 @@ async function chamar(env, { sistema, usuario, esquema, maxTokens, stream, model
       ultimo = r.erro;
       estado.set(modelo, r.erro.status);
       if (r.erro.status === 429) viuCota = true;
+      if (r.erro.invalido) invalidos.add(modelo);
       /* Falhou. Se a reserva ainda não tinha disparado, ela deixa de fazer sentido: o
          próximo entra agora, como substituto. Com outra tentativa ainda correndo, espera
          por ela em vez de abrir uma terceira frente. */
@@ -562,7 +613,8 @@ async function chamar(env, { sistema, usuario, esquema, maxTokens, stream, model
     const venceu = await rodada(rodadas > 1 ? elegiveis.slice(0, 2) : elegiveis);
     if (venceu) {
       const { r, reservaUsada, reservaVenceu } = venceu;
-      return { resposta: r.resposta, p: { ...p, modelo: r.modelo }, reserva: reservaUsada, reservaVenceu, rodadas: n };
+      return { resposta: r.resposta, valor: r.valor, p: { ...p, modelo: r.modelo }, reserva: reservaUsada,
+               reservaVenceu, rodadas: n };
     }
     if (n === rodadas) break;
     const espera = esperaBase * 2 ** (n - 1);
@@ -575,6 +627,11 @@ async function chamar(env, { sistema, usuario, esquema, maxTokens, stream, model
       new Error(`cota do provedor esgotada${ultimo ? ` — último: ${ultimo.message}` : ""}`),
       { status: 429 },
     );
+  }
+  /* Antes do 503: o modelo respondeu, só que nada que se use. Não é congestionamento, e o
+     disjuntor não conta. */
+  if (ultimo?.invalido) {
+    throw Object.assign(new Error(`nenhum plano válido — ${ultimo.message}`), { status: 502 });
   }
   if (ultimo && TRANSITORIOS.has(ultimo.status)) {
     throw Object.assign(new Error(`modelos ocupados — ${ultimo.message}`), { status: 503 });
@@ -614,6 +671,99 @@ const ESQUEMA_CONSULTA = {
      o resto conforme o tipo. */
   required: ["tipo"],
 };
+
+/* ─── O plano que volta do modelo ───────────────────────────────────────────── */
+
+/* Sem raciocínio, o modelo leve às vezes pensa alto DENTRO do JSON. O plano que ficou no cache
+   em out/2026 trazia no campo y "empresa Henry x atraso? Wait x,y standard: … Correct JSON
+   below." — e passou, porque só o SQL era conferido. Meta-conversa em inglês num plano em
+   português é sinal certo disso. */
+const PENSANDO_ALTO = /\b(wait|let'?s|let me|actually|hmm+|json|formatted|x\s*,\s*y)\b/i;
+const APELIDO = /^[a-z_][a-z0-9_]*$/i;
+const UNIDADES = ["%", "min", "voos", "km"];
+
+/** Os objetos JSON dentro de um texto, já lidos, na ordem em que aparecem. Um rascunho seguido
+    do "JSON correto", ou tudo cercado de ```json, e o texto inteiro deixa de ser JSON — com um
+    plano bom lá dentro. Objeto lido é pulado inteiro (o de dentro não é plano), e a busca tem
+    um teto de passos: medido, uma resposta degenerada de 6.000 "{" custava 300 ms de CPU, e o
+    plano gratuito do Worker tem ~10 ms por requisição. Resposta legítima, até o teto de
+    tokens, usa uns 10 mil passos. */
+function objetosJson(texto, teto = 50000) {
+  const achados = [];
+  let passos = 0;
+  for (let i = texto.indexOf("{"); i >= 0 && passos < teto; i = texto.indexOf("{", i + 1)) {
+    let nivel = 0, emTexto = false, escape = false;
+    for (let j = i; j < texto.length && passos++ < teto; j++) {
+      const c = texto[j];
+      if (emTexto) {
+        if (escape) escape = false;
+        else if (c === "\\") escape = true;
+        else if (c === '"') emTexto = false;
+      } else if (c === '"') emTexto = true;
+      else if (c === "{") nivel++;
+      else if (c === "}" && --nivel === 0) {
+        const obj = lerJson(texto.slice(i, j + 1));
+        if (obj) { achados.push(obj); i = j; }
+        break;
+      }
+    }
+  }
+  return achados;
+}
+
+function lerJson(t) {
+  try { return JSON.parse(t); } catch { /* segue */ }
+  try { return JSON.parse(t.replace(/\\'/g, "'")); } catch { return null; }   /* \' não é escape de JSON */
+}
+
+/** O plano conferido e normalizado, ou o motivo de não servir. */
+function conferirPlano(p) {
+  if (!p || typeof p !== "object" || Array.isArray(p)) return { motivo: "não é um objeto" };
+  const texto = (v, max) => String(v ?? "").trim().slice(0, max);
+  const tipo = p.tipo === "conversa" ? "conversa" : p.tipo === "consulta" || p.sql ? "consulta" : null;
+  if (!tipo) return { motivo: "sem tipo" };
+  const campos = tipo === "conversa" ? ["resposta"] : ["titulo", "aviso", "frase", "x", "y", "serie"];
+  const alto = campos.find((k) => PENSANDO_ALTO.test(String(p[k] ?? "")));
+  if (alto) return { motivo: `pensou alto em "${alto}"` };
+  /* Conversa: sem SQL, sem gráfico, sem tabela. A página mostra só o texto — é o que evita
+     apresentar uma frase do modelo com a aparência de resultado consultado. */
+  if (tipo === "conversa") {
+    const resposta = texto(p.resposta, 1500);
+    return resposta ? { plano: { tipo, resposta } } : { motivo: "conversa sem resposta" };
+  }
+  const sql = String(p.sql ?? "").trim();
+  const recusa = sqlSuspeito(sql);
+  if (recusa) return { motivo: `SQL ${recusa}` };
+  /* Eixo é apelido do SELECT. Fora dele a página desenharia tabela de qualquer jeito; o plano
+     já sai dizendo isso. */
+  const eixo = (v) => {
+    const s = String(v ?? "").trim();
+    return APELIDO.test(s) && new RegExp(`\\b${s}\\b`, "i").test(sql) ? s : "";
+  };
+  const x = eixo(p.x), y = eixo(p.y);
+  const grafico = GRAFICOS.includes(p.grafico) && x && y ? p.grafico : "tabela";
+  /* O enum do schema não aceita string vazia, então "sem unidade" viaja como "nenhuma" e volta
+     a ser "" aqui — senão o rótulo do gráfico sairia "12 nenhuma". */
+  return { plano: { tipo, sql, grafico, x, y, serie: eixo(p.serie),
+                    unidade: UNIDADES.includes(p.unidade) ? p.unidade : "",
+                    titulo: texto(p.titulo, 160), aviso: texto(p.aviso, 400), frase: texto(p.frase, 400) } };
+}
+
+/** O plano dentro do que o modelo devolveu, ou o motivo de não haver um. Vale o texto inteiro;
+    se ele não for um JSON só, o último objeto que passa na conferência — a correção vem depois
+    do rascunho. */
+function lerPlano(texto) {
+  const inteiro = lerJson(String(texto ?? "").trim());
+  const candidatos = inteiro ? [inteiro] : objetosJson(String(texto ?? "")).reverse();
+  if (!candidatos.length) return { motivo: "não é JSON" };
+  let motivo = null;
+  for (const c of candidatos) {
+    const r = conferirPlano(c);
+    if (r.plano) return r;
+    motivo ??= r.motivo;
+  }
+  return { motivo };
+}
 
 /* CACHE DE PLANO. A mesma pergunta, sem conversa antes, pede o mesmo plano: a segunda vez sai
    do KV, sem chamada nenhuma. A chave junta a pergunta normalizada, a data do export (dado
@@ -659,7 +809,12 @@ async function rotaConsulta(req, env, ctx, origem, modeloForcado) {
   const bloqueio = bloqueioDoDia(await lerDia(env), env);
   if (bloqueio) return json({ erro: bloqueio.erro, pausa_ate: bloqueio.pausa_ate ?? null }, bloqueio.status, origem);
 
-  const escolhidos = exemplosParecidos(pergunta, EXEMPLOS,
+  /* "e de Minas?" não se parece com exemplo nenhum. Pergunta curta com conversa antes: os
+     exemplos saem da pergunta anterior junto com ela. Na falha de "e de Minas?", o exemplo
+     certo só entrou por ser um dos três primeiros do arquivo. */
+  const curta = chaves(normalizar(pergunta)).size <= 2;
+  const baseExemplos = curta && anterior?.pergunta ? `${String(anterior.pergunta).slice(0, 300)} ${pergunta}` : pergunta;
+  const escolhidos = exemplosParecidos(baseExemplos, EXEMPLOS,
     Number(env.EXEMPLOS_NO_PROMPT ?? EXEMPLOS_NO_PROMPT_PADRAO));
   const registro = [];
   const t0 = Date.now();
@@ -669,54 +824,40 @@ async function rotaConsulta(req, env, ctx, origem, modeloForcado) {
       sistema: PROMPT_CONSULTA + exemplosEmTexto(escolhidos, CONHECIMENTO.fatos) + historicoEmTexto(conversa),
       usuario: pergunta.trim(),
       esquema: ESQUEMA_CONSULTA,
-      maxTokens: 900,
+      /* 900 era justo para uma consulta com CTE, frase e aviso; o teto só custa quando é usado. */
+      maxTokens: 1200,
       modeloForcado,
       atrasoReserva: Number(env.ATRASO_RESERVA_MS ?? ATRASO_RESERVA_PADRAO),
       insistir: true,
       prazoTotal: Number(env.PRAZO_CONSULTA_MS ?? PRAZO_CONSULTA_PADRAO),
       registro,
+      /* "tentar de novo" na página: sem cache e com outra amostra. */
+      variar: !!semCache,
+      aceitar: (corpo, p, modelo) => {
+        const texto = p.texto(corpo);
+        const lido = lerPlano(texto);
+        if (lido.plano) return { valor: lido.plano };
+        const fim = p.fim(corpo);
+        const desfecho = /max_tokens/i.test(String(fim)) ? "cortada" : "invalido";
+        /* O que o modelo devolveu vai para o log (wrangler tail). Da falha de "e de Minas?"
+           ficaram só os 884 tokens de saída no /saude, e nada do que eles diziam. */
+        console.log(JSON.stringify({ rota: "consulta", modelo, desfecho, motivo: lido.motivo, fim,
+                                     inicio: texto.slice(0, 400), final: texto.slice(-200) }));
+        return { motivo: lido.motivo, desfecho };
+      },
     });
   } catch (e) {
     console.log(JSON.stringify({ rota: "consulta", ms: Date.now() - t0, falhou: e.status ?? 500, registro }));
     depois(ctx, anotarDia(env, (d) => contabilizar(d, env, { registro, falhou: [429, 503].includes(e.status) })));
     throw e;
   }
-  const { resposta, p, reserva, reservaVenceu, rodadas } = chamada;
-
-  let corpo, plano;
-  try {
-    corpo = await resposta.json();
-    plano = JSON.parse(p.texto(corpo));
-  } catch {
-    plano = null;
-  }
+  const { valor: saida, p, reserva, reservaVenceu, rodadas } = chamada;
   /* O que prova o raciocínio desligado é o thoughtsTokenCount de cada modelo — vai no log
-     (wrangler tail) e nos contadores do dia, no /saude. */
-  const uso = corpo?.usageMetadata ?? null;
+     (wrangler tail), dentro do registro, e nos contadores do dia, no /saude. */
   console.log(JSON.stringify({ rota: "consulta", modelo: p.modelo, ms: Date.now() - t0, rodadas, reserva,
-                               reservaVenceu, uso, registro }));
-  depois(ctx, anotarDia(env, (d) => contabilizar(d, env, { registro, uso, modelo: p.modelo,
+                               reservaVenceu, registro }));
+  depois(ctx, anotarDia(env, (d) => contabilizar(d, env, { registro,
     reserva: { disparou: reserva, venceu: reservaVenceu }, falhou: false })));
-  if (!plano) return json({ erro: "o modelo não devolveu um plano válido" }, 502, origem);
-
-  let saida;
-  /* Conversa: sem SQL, sem gráfico, sem tabela. A página mostra só o texto — é o que
-     evita apresentar uma frase do modelo com a aparência de resultado consultado. */
-  if (plano.tipo === "conversa") {
-    const texto = String(plano.resposta ?? "").trim();
-    if (!texto) return json({ erro: "o modelo não escreveu a resposta" }, 502, origem);
-    saida = { tipo: "conversa", resposta: texto };
-  } else {
-    const motivo = sqlSuspeito(plano.sql);
-    if (motivo) return json({ erro: `consulta recusada: ${motivo}` }, 422, origem);
-    plano.tipo = "consulta";
-    if (!GRAFICOS.includes(plano.grafico)) plano.grafico = "tabela";
-    /* O enum do schema não aceita string vazia, então "sem unidade" viaja como "nenhuma"
-       e volta a ser "" aqui — senão o rótulo do gráfico sairia "12 nenhuma". */
-    if (plano.unidade === "nenhuma") plano.unidade = "";
-    plano.frase = String(plano.frase ?? "").trim().slice(0, 400);
-    saida = plano;
-  }
   if (chave) depois(ctx, kv.put(chave, JSON.stringify(saida), { expirationTtl: CACHE_PLANO_TTL }));
   return json({ ...saida, modelo: p.modelo, reserva, rodadas }, 200, origem);
 }
@@ -853,11 +994,13 @@ export default {
       if (url.pathname === "/consulta") return await rotaConsulta(req, env, ctx, origem, forcado);
       return json({ erro: "rota inexistente" }, 404, origem);
     } catch (e) {
-      const status = [429, 503].includes(e.status) ? e.status : 500;
+      const status = [429, 502, 503].includes(e.status) ? e.status : 500;
       const mensagem = {
         429: "A cota diária de IA do free tier acabou — ela reinicia à meia-noite no "
            + "Pacífico. As perguntas prontas continuam funcionando: elas rodam SQL local "
            + "e não dependem do modelo.",
+        502: "A IA respondeu, mas não com uma consulta que eu consiga rodar. Tente de outro "
+           + "jeito — ou uma das perguntas prontas, que respondem na hora.",
         503: "A IA gratuita não respondeu a tempo. As perguntas prontas respondem na hora, "
            + "sem ela.",
         500: "Não consegui responder agora.",
