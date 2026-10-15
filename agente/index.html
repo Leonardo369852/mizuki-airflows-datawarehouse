@@ -162,7 +162,6 @@ td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
 }
 .chip:hover { color: var(--ink); border-color: var(--axis); }
 .log { padding: 14px 16px 0; display: flex; flex-direction: column; gap: 12px; }
-.turn { max-width: 68ch; }
 .turn .who { font-family: var(--mono); font-size: 10.5px; letter-spacing: .07em;
              text-transform: uppercase; color: var(--ink-muted); margin-bottom: 4px; }
 .turn.me .bubble { background: var(--surface-sunk); border-left: 2px solid var(--s1);
@@ -190,7 +189,9 @@ button.ghost {
 /* ---------- resultado de uma pergunta: gráfico + SQL + tabela ---------- */
 .res { max-width: 100%; }
 .res-chart { margin: 12px 0 4px; }
-.res-chart svg { width: 100%; height: auto; display: block; }
+/* O desenho já deixa margem; o recorte é a garantia de que nada do gráfico chega à borda do
+   cartão (o svg global é overflow: visible, e o rótulo comprido vazava até encostar nela). */
+.res-chart svg { width: 100%; height: auto; display: block; overflow: hidden; }
 .res-title { font-family: var(--display); font-weight: 600; font-size: 13.5px;
              color: var(--ink-2); margin: 10px 0 0; }
 .res-meta { font-family: var(--mono); font-size: 10.5px; letter-spacing: .04em;
@@ -419,8 +420,11 @@ body { height: 100%; overflow: hidden; }
 /* As prontas oferecidas quando a IA falha, dentro do turno. */
 .saida { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 10px; }
 
-/* ---------- resultado: gráfico ocupa a largura do thread ---------- */
-.turn.res { max-width: none; }
+/* ---------- resultado: o cartão do gráfico ----------
+   Toda mensagem cabe na mesma coluna, a do thread: o agente começa na borda esquerda dela, o
+   visitante termina na direita, e o cartão do gráfico vai de uma à outra. Antes cada turno
+   parava em 68ch (~510 px) e só o cartão ia até a borda — ele ficava 180 px mais largo que
+   as mensagens em volta. */
 /* A classe .res só entra quando o bloco do gráfico é anexado — antes disso (pensando,
    ou resposta de conversa) o balão tem de ficar arredondado como qualquer outro. */
 .turn.res > .bubble { border-radius: 5px 14px 0 0; border-bottom: 0; padding-bottom: 6px; }
@@ -878,13 +882,48 @@ function promptSql() {
    (a paleta tem slots abaixo de 3:1, então o rótulo é obrigatório).
    -------------------------------------------------------------------------- */
 
-const W = 760;
-
-function svgIn(host, h) {
+/* Os gráficos desenham na largura real do contêiner, em px: texto de 11,5 é 11,5 px na tela,
+   no computador e no celular. Antes, um viewBox fixo de 760 encolhia junto com a tela — no
+   celular o rótulo saía com 4,9 px —, e o nome comprido, ancorado à direita da coluna dele,
+   passava da borda esquerda do SVG até encostar na borda do cartão. Agora todo texto é medido
+   e cortado com "…" para caber, e nada chega a menos de MARGEM da borda. */
+const W_MAX = 760, W_MIN = 280, MARGEM = 8;
+function largura(host) {
+  const w = host.getBoundingClientRect().width;
+  return Math.round(Math.max(W_MIN, Math.min(W_MAX, w || W_MAX)));
+}
+function svgIn(host, h, W) {
   const s = svgEl("svg", { viewBox: `0 0 ${W} ${h}`, role: "img" });
   host.textContent = ""; host.appendChild(s);
   return s;
 }
+
+/* Largura de um texto em px, com a mesma fonte do SVG (as do tema, em --body e --mono). */
+const medidor = document.createElement("canvas").getContext("2d");
+const familias = {};
+function larguraTexto(s, tam, { mono = false, peso = 400 } = {}) {
+  familias[mono] ??= getComputedStyle(document.documentElement)
+    .getPropertyValue(mono ? "--mono" : "--body").trim() || (mono ? "monospace" : "sans-serif");
+  medidor.font = `${peso} ${tam}px ${familias[mono]}`;
+  return medidor.measureText(String(s)).width;
+}
+/** O texto inteiro, se cabe em `max` px; senão cortado, com "…". Um sufixo curto entre
+    parênteses fica: é o que separa "RIO DE JANEIRO (SBRJ)" de "RIO DE JANEIRO (SBGL)", e
+    cortado no fim os dois viravam "RIO DE JANEIRO…". */
+function caber(s, max, tam, opcoes) {
+  s = String(s);
+  if (larguraTexto(s, tam, opcoes) <= max) return s;
+  const sufixo = s.match(/ \([^()]{1,8}\)$/)?.[0] ?? "";
+  const corpo = sufixo ? s.slice(0, -sufixo.length) : s;
+  let lo = 0, hi = corpo.length - 1;
+  while (lo < hi) {
+    const m = (lo + hi + 1) >> 1;
+    if (larguraTexto(corpo.slice(0, m).trimEnd() + "…" + sufixo, tam, opcoes) <= max) lo = m; else hi = m - 1;
+  }
+  return corpo.slice(0, lo).trimEnd() + "…" + sufixo;
+}
+/** Centro de um texto de largura `w` em `x`, puxado para dentro das margens. */
+const dentro = (x, w, W) => Math.min(Math.max(x, MARGEM + w / 2), W - MARGEM - w / 2);
 const ehNum = v => typeof v === "number" && isFinite(v);
 function val(l, k) { const v = l[k]; return ehNum(v) ? v : Number(v); }
 function rot(v, u) {
@@ -903,46 +942,57 @@ function extras(l, plano) {
 }
 
 function gBarraH(host, ls, plano) {
-  const rotW = 168, barX = rotW + 8, valW = 74;
+  const W = largura(host), TAM = 11.5, VALOR = { mono: true, peso: 500 };
+  const nomes = ls.map(l => String(l[plano.y] ?? "—"));
+  const vs = ls.map(l => val(l, plano.x));
+  const valores = vs.map(v => rot(v, plano.unidade));
+  /* Coluna do nome: a do maior nome, até 38% da largura — o que passar é cortado com "…" e
+     aparece inteiro no hover. Coluna do valor, à direita da barra: a do maior valor. */
+  const rotW = Math.min(Math.max(...nomes.map(n => larguraTexto(n, TAM))), W * 0.38);
+  const valW = Math.max(...valores.map(t => larguraTexto(t, 11, VALOR))) + 7;
+  const xNome = MARGEM + rotW, barX = xNome + 8;
   const h = 10 + ls.length * 23 + 6;
-  const s = svgIn(host, h);
-  const max = Math.max(...ls.map(l => val(l, plano.x)), 0) || 1;
-  const esc = (W - barX - valW) / max;
+  const s = svgIn(host, h, W);
+  const max = Math.max(...vs, 0) || 1;
+  const esc = Math.max(0, W - MARGEM - valW - barX) / max;
 
   ls.forEach((l, i) => {
-    const y = 10 + i * 23, v = val(l, plano.x), lw = Math.max(2, v * esc);
-    const nome = String(l[plano.y] ?? "—");
-    txt(s, rotW, y + 9, nome.length > 30 ? nome.slice(0, 29) + "…" : nome,
-      { anchor: "end", size: 11.5, fill: "var(--ink-2)" });
+    const y = 10 + i * 23, lw = Math.max(2, vs[i] * esc);
+    const dica = [[plano.x.replace(/_/g, " "), valores[i]], ...extras(l, plano)];
+    const t = txt(s, xNome, y + 9, caber(nomes[i], rotW, TAM), { anchor: "end", size: TAM, fill: "var(--ink-2)" });
+    hoverable(t, nomes[i], dica);
     const b = svgEl("rect", { x: barX, y, width: lw, height: 14, rx: 3, fill: "var(--s1)" });
     s.appendChild(b);
-    hoverable(b, nome, [[plano.x.replace(/_/g, " "), rot(v, plano.unidade)], ...extras(l, plano)]);
-    txt(s, barX + lw + 7, y + 9, rot(v, plano.unidade),
-      { size: 11, mono: true, fill: "var(--ink-2)", weight: 500 });
+    hoverable(b, nomes[i], dica);
+    txt(s, barX + lw + 7, y + 9, valores[i], { size: 11, mono: true, fill: "var(--ink-2)", weight: 500 });
   });
   return s;
 }
 
 function gBarraV(host, ls, plano) {
-  const h = 200, base = h - 34, topo = 16;
-  const s = svgIn(host, h);
+  const W = largura(host), h = 200, base = h - 34, topo = 16, TAM = 11.5, VALOR = { mono: true, peso: 600 };
+  const s = svgIn(host, h, W);
   const max = Math.max(...ls.map(l => val(l, plano.y)), 0) || 1;
-  const passo = W / ls.length, larg = Math.min(64, passo - 14);
+  /* Cada barra tem a sua faixa, e as faixas ficam dentro das margens: o nome cabe na faixa. */
+  const passo = (W - 2 * MARGEM) / ls.length, larg = Math.max(4, Math.min(64, passo - 14));
 
-  s.appendChild(svgEl("line", { x1: 0, y1: base, x2: W, y2: base, stroke: "var(--axis)", "stroke-width": 1 }));
+  s.appendChild(svgEl("line", { x1: MARGEM, y1: base, x2: W - MARGEM, y2: base, stroke: "var(--axis)", "stroke-width": 1 }));
 
   ls.forEach((l, i) => {
     const v = val(l, plano.y);
     const alt = Math.max(2, (v / max) * (base - topo));
-    const x = i * passo + (passo - larg) / 2;
+    const x = MARGEM + i * passo + (passo - larg) / 2;
     const b = svgEl("rect", { x, y: base - alt, width: larg, height: alt, rx: 3, fill: "var(--s1)" });
     s.appendChild(b);
     const nome = String(l[plano.x] ?? "—");
-    hoverable(b, nome, [[plano.y.replace(/_/g, " "), rot(v, plano.unidade)], ...extras(l, plano)]);
-    txt(s, x + larg / 2, base - alt - 6, rot(v, plano.unidade),
-      { anchor: "middle", size: 11.5, mono: true, weight: 600, fill: "var(--ink)" });
-    txt(s, x + larg / 2, base + 15, nome.length > 16 ? nome.slice(0, 15) + "…" : nome,
-      { anchor: "middle", size: 11.5, fill: "var(--ink-2)" });
+    const dica = [[plano.y.replace(/_/g, " "), rot(v, plano.unidade)], ...extras(l, plano)];
+    hoverable(b, nome, dica);
+    const valor = rot(v, plano.unidade);
+    txt(s, dentro(x + larg / 2, larguraTexto(valor, TAM, VALOR), W), base - alt - 6, valor,
+      { anchor: "middle", size: TAM, mono: true, weight: 600, fill: "var(--ink)" });
+    const t = txt(s, x + larg / 2, base + 15, caber(nome, passo - 6, TAM),
+      { anchor: "middle", size: TAM, fill: "var(--ink-2)" });
+    hoverable(t, nome, dica);
   });
   return s;
 }
@@ -961,10 +1011,15 @@ function rotuloEixo(v) {
 }
 
 function gLinha(host, ls, plano) {
-  const h = 210, base = h - 32, topo = 18, padL = 8, padR = 46;
-  const s = svgIn(host, h);
+  const W = largura(host), h = 210, base = h - 32, topo = 18;
+  const s = svgIn(host, h, W);
   const vs = ls.map(l => val(l, plano.y));
   const lo = Math.min(...vs), hi = Math.max(...vs);
+  /* O rótulo do eixo e o valor dos extremos ficam centrados no ponto: o primeiro e o último
+     ponto precisam de meia largura de texto de folga, senão ele passa da borda. */
+  const meia = Math.max(...ls.map(l => larguraTexto(rotuloEixo(l[plano.x]), 10.5, { mono: true })),
+                        ...[lo, hi].map(v => larguraTexto(rot(v, plano.unidade), 11.5, { mono: true, peso: 600 }))) / 2;
+  const padL = MARGEM + meia, padR = MARGEM + meia;
   const min = lo - (hi - lo) * 0.25 || 0, max = hi + (hi - lo) * 0.2 || 1;
   const px = i => padL + (i * (W - padL - padR)) / Math.max(1, ls.length - 1);
   const py = v => base - ((v - min) / (max - min)) * (base - topo);
@@ -975,8 +1030,13 @@ function gLinha(host, ls, plano) {
   }));
   s.appendChild(svgEl("path", { d, fill: "none", stroke: "var(--s1)", "stroke-width": 2, "stroke-linejoin": "round" }));
 
-  /* Rótulo direto só nos extremos — nunca um número em cada ponto. */
-  const iMin = vs.indexOf(lo), iMax = vs.indexOf(hi);
+  /* Rótulo direto só nos extremos — nunca um número em cada ponto. No eixo, um rótulo a cada
+     tantos pontos quantos couberem sem encostar um no outro: no celular, doze meses não cabem. */
+  const iMin = vs.indexOf(lo), iMax = vs.indexOf(hi), n = ls.length;
+  const espaco = (W - padL - padR) / Math.max(1, n - 1);
+  const cada = Math.max(1, Math.ceil((Math.max(...ls.map(l => larguraTexto(rotuloEixo(l[plano.x]), 10.5, { mono: true }))) + 6) / espaco));
+  /* O último sempre aparece; o penúltimo mostrado fica a pelo menos `cada` pontos dele. */
+  const noEixo = i => i === n - 1 || (i % cada === 0 && n - 1 - i >= cada);
   ls.forEach((l, i) => {
     const c = svgEl("circle", {
       cx: px(i), cy: py(vs[i]), r: 4.5,
@@ -989,7 +1049,7 @@ function gLinha(host, ls, plano) {
       txt(s, px(i), py(vs[i]) + (i === iMax ? -11 : 17), rot(vs[i], plano.unidade),
         { anchor: "middle", size: 11.5, mono: true, weight: 600, fill: "var(--ink)" });
     }
-    if (i === 0 || i === ls.length - 1 || ls.length <= 13) {
+    if (noEixo(i)) {
       txt(s, px(i), base + 15, rotuloEixo(l[plano.x]),
         { anchor: "middle", size: 10.5, mono: true });
     }
@@ -998,19 +1058,29 @@ function gLinha(host, ls, plano) {
 }
 
 function gHalteres(host, ls, plano) {
-  const rotW = 150, x0 = rotW + 54, x1 = W - 54;
+  const W = largura(host), TAM = 11.5, VALOR = { mono: true };
   const topo = 34;                       /* faixa reservada para a legenda */
   const h = topo + ls.length * 25 + 8;
-  const s = svgIn(host, h);
+  const s = svgIn(host, h, W);
   const todos = ls.flatMap(l => [val(l, plano.x), val(l, plano.y)]);
   const lo = Math.min(...todos), hi = Math.max(...todos);
+  const chave = Object.keys(ls[0]).find(k => k !== plano.x && k !== plano.y);
+  const nomes = ls.map(l => String(l[chave] ?? "—"));
+  /* Coluna do nome medida, até 34% da largura (28% no celular, para sobrar faixa para os
+     pontos). O valor de cada ponta fica por fora dos pontos, então a faixa dos pontos
+     desconta, dos dois lados, a largura do maior valor. */
+  const rotW = Math.min(Math.max(...nomes.map(n => larguraTexto(n, TAM))), W * (W < 480 ? 0.28 : 0.34));
+  const valW = Math.max(...todos.map(v => larguraTexto(rot(v, plano.unidade), 10.5, VALOR))) + 8;
+  const x0 = MARGEM + rotW + 10 + valW, x1 = W - MARGEM - valW;
   const px = v => x0 + ((v - lo) / (hi - lo || 1)) * (x1 - x0);
 
   ls.forEach((l, i) => {
     const y = topo + i * 25, a = val(l, plano.x), b = val(l, plano.y);
-    const nome = String(l[Object.keys(l).find(k => k !== plano.x && k !== plano.y)] ?? "—");
-    txt(s, rotW, y + 4, nome.length > 26 ? nome.slice(0, 25) + "…" : nome,
-      { anchor: "end", size: 11.5, fill: "var(--ink-2)" });
+    const nome = nomes[i];
+    const t = txt(s, MARGEM + rotW, y + 4, caber(nome, rotW, TAM),
+      { anchor: "end", size: TAM, fill: "var(--ink-2)" });
+    hoverable(t, nome, [[plano.x.replace(/_/g, " "), rot(a, plano.unidade)],
+                        [plano.y.replace(/_/g, " "), rot(b, plano.unidade)]]);
     s.appendChild(svgEl("line", {
       x1: px(a), y1: y, x2: px(b), y2: y, stroke: "var(--axis)", "stroke-width": 2
     }));
@@ -1025,17 +1095,20 @@ function gHalteres(host, ls, plano) {
       { size: 10.5, mono: true });
   });
 
-  /* Duas séries: legenda sempre presente. */
-  [[plano.x, "var(--s1)", 0], [plano.y, "var(--s2)", 1]].forEach(([k, cor, i]) => {
-    s.appendChild(svgEl("rect", { x: rotW + 4 + i * 96, y: 2, width: 9, height: 9, rx: 2, fill: cor }));
-    txt(s, rotW + 17 + i * 96, 10, k.replace(/_/g, " "), { size: 10.5, fill: "var(--ink-2)" });
+  /* Duas séries: legenda sempre presente, começando onde começam os pontos. */
+  let lx = MARGEM + rotW + 10;
+  [[plano.x, "var(--s1)"], [plano.y, "var(--s2)"]].forEach(([k, cor]) => {
+    const nome = k.replace(/_/g, " ");
+    s.appendChild(svgEl("rect", { x: lx, y: 2, width: 9, height: 9, rx: 2, fill: cor }));
+    txt(s, lx + 13, 10, nome, { size: 10.5, fill: "var(--ink-2)" });
+    lx += 13 + larguraTexto(nome, 10.5) + 20;
   });
   return s;
 }
 
 function gDispersao(host, ls, plano) {
-  const h = 300, base = h - 32, topo = 16, padL = 44, padR = 16;
-  const s = svgIn(host, h);
+  const W = largura(host), h = 300, base = h - 32, topo = 16, padL = 44, padR = 16;
+  const s = svgIn(host, h, W);
   const xs = ls.map(l => val(l, plano.x)), ys = ls.map(l => val(l, plano.y));
   const xlo = Math.min(...xs), xhi = Math.max(...xs);
   const ylo = Math.min(...ys), yhi = Math.max(...ys);
@@ -1043,7 +1116,7 @@ function gDispersao(host, ls, plano) {
   const py = v => base - ((v - ylo) / (yhi - ylo || 1)) * (base - topo);
   const rotulo = Object.keys(ls[0] || {}).find(k => k !== plano.x && k !== plano.y && !ehNum(ls[0][k]));
 
-  s.appendChild(svgEl("line", { x1: padL, y1: base, x2: W, y2: base, stroke: "var(--axis)" }));
+  s.appendChild(svgEl("line", { x1: padL, y1: base, x2: W - MARGEM, y2: base, stroke: "var(--axis)" }));
   ls.forEach(l => {
     const c = svgEl("circle", {
       cx: px(val(l, plano.x)), cy: py(val(l, plano.y)), r: 5,
@@ -1056,16 +1129,18 @@ function gDispersao(host, ls, plano) {
     ]);
   });
   txt(s, padL, base + 16, `${plano.x.replace(/_/g, " ")} →`, { size: 10.5 });
-  txt(s, 4, topo, `↑ ${plano.y.replace(/_/g, " ")}`, { size: 10.5 });
+  txt(s, MARGEM, topo, `↑ ${plano.y.replace(/_/g, " ")}`, { size: 10.5 });
   return s;
 }
 
 function gMapa(host, ls, plano) {
-  const h = 420;
-  const s = svgIn(host, h);
+  /* A mesma proporção em qualquer largura, e uma faixa embaixo para a nota — antes ela era
+     desenhada por cima dos círculos do Sul. */
+  const W = largura(host), hMapa = Math.round(W * 420 / W_MAX), h = hMapa + 18;
+  const s = svgIn(host, h, W);
   const LAT0 = 4.5, LAT1 = -31.5, LON0 = -70, LON1 = -31;
   const px = lon => ((lon - LON0) / (LON1 - LON0)) * W;
-  const py = lat => ((LAT0 - lat) / (LAT0 - LAT1)) * h;
+  const py = lat => ((LAT0 - lat) / (LAT0 - LAT1)) * hMapa;
   const kv = Object.keys(ls[0] || {}).find(k => /voo|partida|total/.test(k) && ehNum(ls[0][k])) || "voos";
   const max = Math.max(...ls.map(l => val(l, kv)), 1);
   const rotulo = Object.keys(ls[0] || {}).find(k => !ehNum(ls[0][k]) && !/icao/.test(k)) || "icao";
@@ -1087,18 +1162,23 @@ function gMapa(host, ls, plano) {
     if (i < 10) marcados.push({ x: px(lon), y: py(lat), r, t: String(l[rotulo] ?? l.icao ?? "") });
   });
 
-  /* Rótulo com halo, e pulando quem cairia em cima de um já colocado. */
+  /* Rótulo com halo, à direita do círculo — ou à esquerda, se passaria da borda —, e pulando
+     quem cairia em cima de um já colocado. */
   const postos = [];
   marcados.forEach(m => {
-    const x = m.x + m.r + 5, y = m.y + 4;
-    if (postos.some(p => Math.abs(p.x - x) < 90 && Math.abs(p.y - y) < 13)) return;
-    const t = txt(s, x, y, m.t, { size: 11, fill: "var(--ink-2)", weight: 500 });
+    const tw = larguraTexto(m.t, 11, { peso: 500 }), y = m.y + 4;
+    const direita = m.x + m.r + 5 + tw <= W - MARGEM;
+    const l = direita ? m.x + m.r + 5 : m.x - m.r - 5 - tw;
+    if (l < MARGEM) return;
+    if (postos.some(p => l < p.r + 6 && l + tw > p.l - 6 && Math.abs(p.y - y) < 13)) return;
+    const t = txt(s, direita ? l : l + tw, y, m.t,
+      { size: 11, fill: "var(--ink-2)", weight: 500, anchor: direita ? "start" : "end" });
     t.setAttribute("stroke", "var(--surface)");
     t.setAttribute("stroke-width", "3.5");
     t.setAttribute("paint-order", "stroke");
-    postos.push({ x, y });
+    postos.push({ l, r: l + tw, y });
   });
-  txt(s, 4, h - 6, "Projeção equirretangular. Área do círculo ∝ volume.", { size: 10 });
+  txt(s, MARGEM, h - 4, caber("Projeção equirretangular. Área do círculo ∝ volume.", W - 2 * MARGEM, 10), { size: 10 });
   return s;
 }
 
@@ -1135,6 +1215,19 @@ const GRAFICOS = {
    não depende de o modelo acertar. */
 const MEDIDA_EM = { barra_horizontal: "x", barra_vertical: "y", linha: "y" };
 
+/* Gráfico desenhado na largura real: quando a coluna muda de largura — janela redimensionada,
+   celular girado —, ele é redesenhado. Um observador só, para todos. */
+const paraRedesenhar = new WeakMap();
+const observador = "ResizeObserver" in window ? new ResizeObserver(entradas => {
+  for (const { target } of entradas) {
+    const r = paraRedesenhar.get(target);
+    const w = largura(target);
+    if (!r || Math.abs(w - r.w) < 8) continue;
+    r.w = w;
+    try { r.f(target, r.ls, r.plano); } catch (e) { console.warn("gráfico:", e); }
+  }
+}) : null;
+
 function desenhar(host, ls, plano) {
   const f = GRAFICOS[plano.grafico];
   /* Sem dados suficientes, ou eixo que não existe no resultado: tabela. */
@@ -1151,7 +1244,12 @@ function desenhar(host, ls, plano) {
     if (!ehNum(ls[0][plano[slot]])) return gTabela(host, ls);
   }
 
-  try { return f(host, ls, plano); } catch (e) { console.warn("gráfico:", e); return gTabela(host, ls); }
+  try {
+    const svg = f(host, ls, plano);
+    paraRedesenhar.set(host, { f, ls, plano, w: largura(host) });
+    observador?.observe(host);
+    return svg;
+  } catch (e) { console.warn("gráfico:", e); return gTabela(host, ls); }
 }
 
 /* --------------------------------------------------------------------------
