@@ -14,10 +14,11 @@ responde perguntas sobre ele numa página estática. Visão geral e decisões no
   - `fatos.json` — **gerado** do `agente/dados/manifest.json` pelo `conferir.py`; não edite à mão
   - `montar.js` — transforma os JSON em prompt
 - `agente/roteador.js` — o que responde sem IA, do mais barato ao mais caro: texto fixo → pergunta
-  pronta → template; o resto vai ao Worker.
+  pronta → template → seguimento ("e de Minas?" depois de uma resposta montada aqui, com a receita
+  que a página guarda no histórico); o resto vai ao Worker.
 - `agente/narrador.js` — o texto da resposta, com os números da consulta, e o verificador de números.
 - `agente/worker/` — Cloudflare Worker: guarda a chave e monta o prompt ([README](agente/worker/README.md)).
-- `agente/avaliacao/` — 31 perguntas com gabarito no DuckDB; mede acerto, rota, latência e chamadas.
+- `agente/avaliacao/` — 32 perguntas com gabarito no DuckDB; mede acerto, rota, latência e chamadas.
 - `agente/dados/` — 5 Parquet + `manifest.json`, exportados da Gold por
   `databricks/Agents/Exportar Fato do Agente.py`.
 - `agente/index.html` — a página: chat, DuckDB-WASM e gráficos.
@@ -31,6 +32,9 @@ responde perguntas sobre ele numa página estática. Visão geral e decisões no
   somas, no SQL, na pergunta ou nos fatos.
 - **O que dá para responder sem IA não vai à IA.** Pergunta nova que se repete vira exemplo ou
   template, não prompt maior. Template só com entidade sem ambiguidade; na dúvida, vai à IA.
+- **A resposta do modelo é conferida, não confiada.** O Worker lê o plano com tolerância e o confere
+  (SQL, eixos, raciocínio vazado no JSON); o que não passa é falha daquela tentativa, nunca resposta
+  nem cache.
 - **Preserve:** SQL rodando no navegador, nunca no Worker; o Worker recebendo só a pergunta e a
   conversa; `sqlSuspeito()`; as travas de custo (por IP, por dia, disjuntor, prazos); a resposta em
   JSON estruturado.
@@ -43,7 +47,7 @@ responde perguntas sobre ele numa página estática. Visão geral e decisões no
 node --test "agente/**/*.test.mjs"                  # roteador, narrador, montagem do prompt
 python agente/conhecimento/conferir.py              # fatos, colunas, exemplos executados, apelidos
 python agente/avaliacao/avaliar.py seco             # o corretor reprova os defeitos plantados
-python agente/avaliacao/avaliar.py offline NOME     # as 31 perguntas, sem rede nem cota
+python agente/avaliacao/avaliar.py offline NOME     # as 32 perguntas, sem rede nem cota
 ```
 
 `avaliar.py ao-vivo` chama a IA de verdade e precisa de `agente/worker/.dev.vars`. O free tier é

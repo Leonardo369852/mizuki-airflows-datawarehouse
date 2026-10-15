@@ -12,7 +12,8 @@ pior uso possível continua sendo perguntar sobre voos brasileiros.
 navegador                              Cloudflare Worker                 provedor de IA
 ─────────                              ─────────────────                 ──────────────
 roteador.js responde sem IA o que dá
-(texto pronto, pergunta pronta, template)
+(texto pronto, pergunta pronta, template,
+seguimento: "e de Minas?")
 o resto ─────────────────────────────▶ POST /consulta ─────────────────▶ {tipo, sql, gráfico,
                                        prompt montado de                  aviso, frase}
                                        agente/conhecimento/, com os 4
@@ -39,6 +40,26 @@ SQL), a identidade em duas linhas e os limites do grão, o roteamento e a regra 
 entram os exemplos mais parecidos (`EXEMPLOS_NO_PROMPT`) e a conversa. Número de dado não é digitado:
 vem de `fatos.json`, gerado do manifest do export. Mudar o que o agente sabe é mudar esses arquivos,
 não este.
+
+Da conversa, o SQL do último turno vai inteiro (até 1.500 caracteres) e com o gráfico dele: é dele que
+"e o pior?" parte. Pergunta curta, que continua a anterior, busca os exemplos junto com ela — sozinha,
+"e de Minas?" não se parece com exemplo nenhum.
+
+---
+
+## A resposta do modelo
+
+Um 200 do provedor não basta. O plano é lido com tolerância — o modelo às vezes escreve um rascunho e
+depois "o JSON correto", ou cerca tudo de ` ```json ` — e conferido: SQL de leitura com `LIMIT`
+(`sqlSuspeito()`), eixos que são colunas do SQL, nenhum raciocínio vazado dentro do JSON ("Wait x,y
+standard… Correct JSON below." já chegou no campo `y`). O que não passa conta como falha **daquela
+tentativa**: a próxima entra, dentro do mesmo prazo de 20 s. Antes, a resposta inválida era o fim da
+pergunta.
+
+Com temperatura 0, a mesma pergunta com a mesma conversa devolve a mesma resposta — e "e de Minas?"
+voltou inválida três vezes, idêntica. Por isso o modelo que errou o conteúdo volta, na rodada seguinte,
+com temperatura 0,4, e o "tentar de novo" da página (`semCache`) já começa com ela. Sem plano válido
+em nenhuma tentativa, o erro é um 502 próprio, que não conta para o disjuntor: o provedor respondeu.
 
 ---
 
@@ -95,14 +116,16 @@ Não gasta chamada de modelo. Além da configuração, mostra o dia — um trech
   "prazo_consulta_ms": 20000, "rodadas_consulta": 2, "exemplos_no_prompt": 4,
   "disjuntor": { "falhas_para_pausar": 3, "pausa_ms": 300000, "falhas_seguidas": 0, "pausado_ate": null },
   "hoje": { "perguntas": 12, "do_cache": 3,
-            "chamadas": { "gemini-3.6-flash": { "200": 10, "503": 2 }, "gemini-3.1-flash-lite": { "200": 2, "perdeu": 1 } },
+            "chamadas": { "gemini-3.6-flash": { "200": 10, "503": 2 }, "gemini-3.1-flash-lite": { "200": 2, "perdeu": 1, "invalido": 1 } },
             "tokens": { "gemini-3.6-flash": { "n": 10, "entrada": 34000, "raciocinio": 0, "saida": 1900 } },
             "reserva": { "disparou": 1, "venceu": 1 } } }
 ```
 
 `chamadas` é o que a cota do provedor gasta: uma pergunta pode custar mais de uma (a reserva
-atrasada, a segunda rodada). `raciocinio` soma o `thoughtsTokenCount` de cada modelo e prova se o
-`thinkingBudget: 0` está valendo. `/saude?testar=1` faz uma chamada mínima de verdade, e
+atrasada, a segunda rodada). `invalido` e `cortada` são respostas 200 sem plano que se use — a segunda,
+cortada pelo teto de tokens; o que o modelo devolveu nelas vai para o log (`wrangler tail`). `tokens`
+soma toda tentativa que voltou com corpo, inclusive as inválidas, e `raciocinio`, o
+`thoughtsTokenCount` de cada modelo, prova se o `thinkingBudget: 0` está valendo. `/saude?testar=1` faz uma chamada mínima de verdade, e
 `/modelos` lista os modelos que a chave aceita.
 
 Uma pergunta de ponta a ponta:
@@ -128,7 +151,7 @@ Endpoint público é endpoint abusável, e o free tier é pequeno.
 | Disjuntor | `DISJUNTOR_FALHAS`, `DISJUNTOR_PAUSA_MS` | 3 falhas seguidas → 5 min sem IA |
 | Cache de plano | KV, 7 dias | pergunta sem conversa |
 | Tamanho da pergunta | `MAX_CARACTERES_PERGUNTA` | 300 |
-| Saída do modelo | `maxTokens` | 900 |
+| Saída do modelo | `maxTokens` | 1.200 |
 | Origem permitida | `ORIGENS_PERMITIDAS` | GitHub Pages + localhost |
 | SQL | `sqlSuspeito()` | só um `SELECT`, com `LIMIT` |
 
@@ -145,7 +168,8 @@ provedor, e a página oferece as perguntas prontas — que nunca dependeram da I
 
 O plano gratuito do KV escreve pouco por dia e uma vez por segundo na mesma chave, por isso o dia
 inteiro mora numa chave só e cada requisição grava uma vez, no fim (`waitUntil`). Plano que volta
-vazio na página é apagado quando ela pede a revisão, e o "tentar de novo" pula o cache.
+vazio na página é apagado quando ela pede a revisão, e o "tentar de novo" pula o cache. Plano que não
+passou na conferência nunca entra nele.
 
 **Ressalva honesta:** o KV é eventualmente consistente, então numa rajada simultânea a contagem
 pode subestimar por alguns segundos. Para um portfólio é irrelevante — o que importa é que ninguém

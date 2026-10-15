@@ -68,6 +68,8 @@ sua pergunta
 roteador, no navegador  ──→  saudação, ajuda, pergunta fora do grão: texto pronto
     ↓                   ──→  pergunta pronta, ou "voos / pontualidade / cancelamento / atraso
     ↓                        de <estado | aeroporto | empresa | mês>": o SQL é montado aqui
+    ↓                   ──→  "e de Minas?" depois de uma resposta montada aqui: a mesma, com
+    ↓                        o lugar, a empresa ou o mês trocado
     ↓ (só o resto)
 Cloudflare Worker       ──→  Gemini   devolve {tipo, sql, gráfico, aviso, frase}
     ↓                        (chave e prompt ficam no servidor)
@@ -106,8 +108,10 @@ responde no navegador a saudação, a ajuda e a pergunta que o grão não susten
 pronta dita de outro jeito; e monta sozinho o SQL de "voos em São Paulo" ou "pontualidade da GOL",
 com o dicionário tirado das próprias dimensões. Só com casamento inequívoco: "qual a pontualidade da
 gol?" é igual ao exemplo da Azul palavra por palavra, e sobra de palavra que o template não explica
-manda a pergunta para a IA. Nas 31 perguntas da [avaliação](agente/avaliacao/), 24 saem sem IA, todas
-com o dado certo, entre 44 e 130 ms.
+manda a pergunta para a IA. A continuação que só troca o lugar, a empresa ou o mês de uma resposta
+montada assim — "e de Minas?", "e da GOL?" — reaproveita a receita dela; antes ia à IA, e "e de Minas?",
+depois da pergunta pronta de São Paulo, falhou três vezes seguidas. Nas 32 perguntas da
+[avaliação](agente/avaliacao/), 26 saem sem IA, todas com o dado certo, entre 44 e 130 ms.
 
 **Nem o texto tem número escrito pelo modelo.** Uma segunda chamada à IA escrevia o texto a partir das
 linhas e somou as 16 de São Paulo como 322.327 partidas, quando eram 317.327. Agora a frase vem com
@@ -123,7 +127,9 @@ digitado, o prompt dizia set/2025 a ago/2026 para dados de ago/2025 a jul/2026.
 **Falha rápida, e com saída.** O Worker insiste no máximo 20 s; na falha, a página oferece na hora as
 três perguntas prontas mais parecidas. Três falhas seguidas pausam a IA por 5 min (disjuntor), plano de
 pergunta repetida sai do cache, e as chamadas ao provedor — não só as perguntas — são contadas por modelo
-no `/saude`.
+no `/saude`. Resposta 200 também é conferida: plano que não fecha, com raciocínio vazado no JSON ou com SQL
+perigoso conta como falha daquela tentativa, e a próxima entra. O modelo que errou volta com outra amostra,
+e o "tentar de novo" já começa com ela — com temperatura 0, repetir a pergunta repetia a resposta inválida.
 
 **Roteamento antes de SQL.** Nem toda pergunta é consulta. "o que isso significa?" e "isso é bom?"
 recebem resposta em prosa, sem gráfico e sem SQL — e só podem citar número que já está na conversa. O
@@ -340,10 +346,10 @@ arquivos em `agente/dados/`.
 ```
 agente/
   index.html       a página pública: chat, DuckDB-WASM e os gráficos
-  roteador.js      o que responde sem IA: fixa, pergunta pronta, template
+  roteador.js      o que responde sem IA: fixa, pergunta pronta, template, seguimento
   narrador.js      o texto da resposta, com os números da consulta
   conhecimento/    o que o agente sabe — semântica, identidade, exemplos, apelidos, fatos
-  avaliacao/       31 perguntas com gabarito no DuckDB, medidor de chamadas e relatórios
+  avaliacao/       32 perguntas com gabarito no DuckDB, medidor de chamadas e relatórios
   dados/           5 Parquet + manifest.json, exportados da Gold (1,5 MB)
   worker/          Cloudflare Worker: guarda a chave e monta o prompt da IA
 databricks/

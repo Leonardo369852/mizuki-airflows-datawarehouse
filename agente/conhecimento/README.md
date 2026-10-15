@@ -10,7 +10,7 @@ estava errado em dois deles.
 |---|---|---|
 | `semantica.json` | tabelas, colunas, métricas, problemas da fonte e regras de SQL | à mão |
 | `identidade.json` | quem o agente é, o que não responde, roteamento, a regra da frase, gatilhos e respostas fixas | à mão |
-| `exemplos.json` | pares pergunta → plano, com SQL e frase; os marcados `chip` são as perguntas prontas da página | à mão, SQL conferido |
+| `exemplos.json` | pares pergunta → plano, com SQL e frase; os marcados `chip` são as perguntas prontas da página, e o `seguimento` de uma pronta diz como o roteador responde, sem IA, a continuação que só troca o lugar, a empresa ou o mês | à mão, SQL conferido |
 | `apelidos.json` | sinônimos que as dimensões não têm (GRU, Congonhas, Viracopos…) | à mão, conferido |
 | `fatos.json` | período, volumes e ressalvas, com o texto pronto em português | gerado do manifest |
 | `montar.js` | transforma os JSON em texto de prompt — sem dependência, roda no Worker, no navegador e no Node | — |
