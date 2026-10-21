@@ -124,12 +124,14 @@ apelidos (GRU, Congonhas, Viracopos) — mora em [`agente/conhecimento/`](agente
 e a página leem os mesmos arquivos. Número de dado não é digitado: vem do manifest do export. Quando era
 digitado, o prompt dizia set/2025 a ago/2026 para dados de ago/2025 a jul/2026.
 
-**Falha rápida, e com saída.** O Worker insiste no máximo 20 s; na falha, a página oferece na hora as
-três perguntas prontas mais parecidas. Três falhas seguidas pausam a IA por 5 min (disjuntor), plano de
-pergunta repetida sai do cache, e as chamadas ao provedor — não só as perguntas — são contadas por modelo
-no `/saude`. Resposta 200 também é conferida: plano que não fecha, com raciocínio vazado no JSON ou com SQL
-perigoso conta como falha daquela tentativa, e a próxima entra. O modelo que errou volta com outra amostra,
-e o "tentar de novo" já começa com ela — com temperatura 0, repetir a pergunta repetia a resposta inválida.
+**Falha rápida, e com saída.** O Worker insiste no máximo 20 s; na falha, a página mostra uma ação só, em
+destaque: "Tentar de novo" — com contagem, quando a IA está em pausa. Só quando ela não volta no dia
+(limite ou cota) a saída são as três perguntas prontas mais parecidas. Três falhas seguidas pausam a IA
+por 5 min (disjuntor), plano de pergunta repetida sai do cache, e as chamadas ao provedor — não só as
+perguntas — são contadas por modelo no `/saude`. Resposta 200 também é conferida: plano que não fecha,
+com raciocínio vazado no JSON ou com SQL perigoso conta como falha daquela tentativa, e a próxima entra.
+O modelo que errou volta com outra amostra, e o "tentar de novo" já começa com ela — com temperatura 0,
+repetir a pergunta repetia a resposta inválida.
 
 **Roteamento antes de SQL.** Nem toda pergunta é consulta. "o que isso significa?" e "isso é bom?"
 recebem resposta em prosa, sem gráfico e sem SQL — e só podem citar número que já está na conversa. O

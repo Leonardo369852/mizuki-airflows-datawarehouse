@@ -156,7 +156,9 @@ Endpoint público é endpoint abusável, e o free tier é pequeno.
 | SQL | `sqlSuspeito()` | só um `SELECT`, com `LIMIT` |
 
 Com o disjuntor aberto ou o teto do dia estourado, o Worker responde na hora, sem chamar o
-provedor, e a página oferece as perguntas prontas — que nunca dependeram da IA.
+provedor. Na pausa do disjuntor a resposta traz `pausa_ate`, e o "Tentar de novo" da página espera
+até lá, com contagem; no teto do dia, a página oferece as perguntas prontas — que nunca dependeram
+da IA.
 
 ### O que o KV guarda
 

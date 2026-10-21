@@ -613,7 +613,8 @@ export function criarRoteador(conhecimento, dims = null) {
   return { rotear, comDimensoes, get pronto() { return !!dic; } };
 }
 
-/** As n perguntas prontas mais parecidas — o que a página oferece quando a IA falha. */
+/** As n perguntas prontas mais parecidas — o que a página oferece quando a IA não volta no dia
+    (limite ou cota) ou não está configurada. */
 export function prontasParecidas(pergunta, exemplos, n = 3) {
   const minhas = chaves(normalizar(pergunta));
   return exemplos.filter((e) => e.chip)

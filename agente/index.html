@@ -417,8 +417,29 @@ body { height: 100%; overflow: hidden; }
 
 /* ---------- perguntas prontas ---------- */
 .chips { display: flex; flex-wrap: wrap; gap: 7px; padding: 4px 0 18px; }
-/* As prontas oferecidas quando a IA falha, dentro do turno. */
+/* A saída quando a IA falha, dentro do turno. */
 .saida { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 10px; }
+
+/* "Tentar de novo": quando a IA falha, é a ação — então vem sozinha e em destaque, no azul do
+   balão do visitante, porque quem age é ele. Sem tempo de espera, libera na hora; com (pausa
+   do disjuntor, limite por minuto), mostra quanto falta e libera sozinho. */
+.tentar {
+  display: inline-flex; align-items: center; gap: 7px; min-height: 34px;
+  font: 600 13.5px/1.2 var(--body); color: var(--ink);
+  background: var(--s1-wash); border: 1px solid color-mix(in srgb, var(--s1) 45%, transparent);
+  border-radius: 999px; padding: 6px 16px 6px 12px; cursor: pointer;
+  transition: background-color .15s, border-color .15s, transform .1s;
+  animation: surge .2s ease-out;
+}
+.tentar svg { width: 15px; height: 15px; flex: none; stroke: var(--s1); }
+.tentar span { font-variant-numeric: tabular-nums; }
+.tentar:hover:not(:disabled) { border-color: var(--s1); background: color-mix(in srgb, var(--s1) 24%, transparent); }
+.tentar:active:not(:disabled) { transform: translateY(1px); }
+.tentar:focus-visible { outline: 2px solid var(--s1); outline-offset: 2px; }
+.tentar:disabled { cursor: default; opacity: .6; }
+@keyframes surge { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+@media (pointer: coarse) { .tentar { min-height: 40px; padding-inline: 14px 18px; } }
+@media (prefers-reduced-motion: reduce) { .tentar { animation: none; transition: none; } }
 
 /* ---------- resultado: o cartão do gráfico ----------
    Toda mensagem cabe na mesma coluna, a do thread: o agente começa na borda esquerda dela, o
@@ -847,7 +868,8 @@ async function pedirPlano(pergunta, signal, hist = historico, { semCache = false
     });
     const j = await r.json().catch(() => ({}));
     if (r.ok) return j;
-    throw Object.assign(new Error(j.erro || `HTTP ${r.status}`), { status: r.status });
+    /* pausa_ate vem quando o disjuntor pausou a IA: o "tentar de novo" espera até lá. */
+    throw Object.assign(new Error(j.erro || `HTTP ${r.status}`), { status: r.status, pausaAte: j.pausa_ate ?? null });
   }
   /* Sem Worker: dentro do Claude o próprio visualizador serve. Aqui o prompt vive no
      cliente por força — não há servidor para guardá-lo. */
@@ -1503,17 +1525,23 @@ async function ask(pergunta, planoPronto, opcoes = {}) {
       fala(texto, "Interrompido.");
     } else {
       console.error(e);
-      /* O free tier do Gemini congestiona, e a mensagem de erro sozinha deixava o visitante
-         sem saída. A saída são as perguntas prontas mais parecidas, que respondem na hora,
-         e o "tentar de novo", que pede um plano novo em vez do guardado. */
+      /* O free tier do Gemini congestiona, e não há como saber se a próxima resposta vem
+         certa. O que dá é deixar óbvio o que fazer: "tentar de novo", sozinho e em destaque,
+         que pede um plano novo, com outra amostra. Sem IA o dia inteiro (limite do dia ou cota
+         do provedor), tentar não adianta: aí a saída são as prontas, que não dependem dela. O
+         429 de "muitas perguntas seguidas" é por minuto — esse espera um minuto e tenta. */
       const mensagem = e.status ? String(e.message)
         : /fetch|network|rede/i.test(String(e.message)) ? "Não consegui falar com o servidor da IA agora."
         : String(e.message || e);
-      oferecerProntas(res, texto, pergunta, mensagem, () => {
-        res.previousElementSibling?.remove();   /* a bolha da pergunta, que ask() recria */
-        res.remove();
-        ask(pergunta, planoOriginal, { semCache: true });
-      });
+      if (e.status === 429 && !/minuto/i.test(mensagem)) {
+        oferecerProntas(res, texto, pergunta, mensagem);
+      } else {
+        oferecerNovaTentativa(res, texto, primeiraFrase(mensagem), () => {
+          res.previousElementSibling?.remove();   /* a bolha da pergunta, que ask() recria */
+          res.remove();
+          ask(pergunta, planoOriginal, { semCache: true });
+        }, e.pausaAte ?? (e.status === 429 ? Date.now() + 60000 : null));
+      }
     }
   } finally {
     busy = false; sendBtn.disabled = false; stopBtn.hidden = true; ctl = null;
@@ -1530,10 +1558,10 @@ function conversaConferida(resposta, pergunta) {
   return CONHECIMENTO.montar.respostaFixa(CONHECIMENTO.identidade, CONHECIMENTO.fatos, "conversa_descartada");
 }
 
-/* Quando a IA não responde — congestionada, em pausa, sem cota ou sem Worker —, a resposta
-   vira outra pergunta que responde na hora: as três prontas mais parecidas com a que foi
-   feita (roteador.js, prontasParecidas). */
-function oferecerProntas(res, texto, pergunta, mensagem, tentarDeNovo) {
+/* Quando a IA não vai responder — sem cota no dia, ou sem Worker —, a resposta vira outra
+   pergunta que responde na hora: as três prontas mais parecidas com a que foi feita
+   (roteador.js, prontasParecidas). */
+function oferecerProntas(res, texto, pergunta, mensagem) {
   fala(texto, mensagem);
   const caixa = document.createElement("div");
   caixa.className = "saida";
@@ -1547,14 +1575,47 @@ function oferecerProntas(res, texto, pergunta, mensagem, tentarDeNovo) {
     b.addEventListener("click", () => ask(s.p, s));
     caixa.appendChild(b);
   }
-  if (tentarDeNovo) {
-    const b = document.createElement("button");
-    b.type = "button"; b.className = "chip"; b.textContent = "tentar de novo";
-    b.addEventListener("click", tentarDeNovo);
-    caixa.appendChild(b);
-  }
   if (caixa.children.length) res.appendChild(caixa);
   aoFundo();
+}
+
+/* Só a primeira frase da mensagem do Worker: a segunda mandava para as perguntas prontas, que
+   não aparecem mais junto do "tentar de novo". */
+const primeiraFrase = m => String(m).match(/^.+?[.!?](?=\s|$)/)?.[0] ?? String(m);
+
+/* A IA falhou e tentar de novo adianta: o botão, sozinho e em destaque. Com `esperaAte`
+   (pausa do disjuntor, limite por minuto), ele mostra quanto falta e libera sozinho — antes
+   disso, a tentativa voltaria na hora com o mesmo erro. */
+function oferecerNovaTentativa(res, texto, mensagem, tentarDeNovo, esperaAte = null) {
+  fala(texto, mensagem);
+  const caixa = document.createElement("div");
+  caixa.className = "saida";
+  const b = document.createElement("button");
+  b.type = "button"; b.className = "tentar";
+  b.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" '
+    + 'stroke-linejoin="round" aria-hidden="true"><path d="M18.5 15.75A7.5 7.5 0 1 1 17.75 7.18"/>'
+    + '<path d="M17.75 2.9v4.28H13.5"/></svg><span>Tentar de novo</span>';
+  b.addEventListener("click", () => { if (!b.disabled) tentarDeNovo(); });
+  caixa.appendChild(b);
+  res.appendChild(caixa);
+  if (esperaAte > Date.now()) contagem(b, esperaAte);
+  aoFundo();
+}
+
+/* O botão fica desabilitado com o tempo que falta, e libera sozinho quando acaba. O tempo sai
+   do relógio a cada passo, então não acumula atraso; turno que saiu da tela para a conta. */
+function contagem(b, ate) {
+  const rotulo = b.querySelector("span");
+  const passo = () => {
+    if (!b.isConnected) return;
+    const falta = Math.ceil((ate - Date.now()) / 1000);
+    b.disabled = falta > 0;
+    rotulo.textContent = falta > 0
+      ? `Tentar de novo em ${Math.floor(falta / 60)}:${String(falta % 60).padStart(2, "0")}`
+      : "Tentar de novo";
+    if (falta > 0) setTimeout(passo, 1000);
+  };
+  passo();
 }
 
 sendBtn.addEventListener("click", () => {

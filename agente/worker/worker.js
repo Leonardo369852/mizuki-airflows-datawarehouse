@@ -327,7 +327,7 @@ const depois = (ctx, promessa) => (ctx?.waitUntil ? ctx.waitUntil(promessa) : pr
  * DISJUNTOR. Com o free tier fora do ar, cada pergunta esperava o prazo inteiro para cair no
  * mesmo erro, gastando chamadas nisso. Depois de DISJUNTOR_FALHAS falhas seguidas (503 ou 429),
  * a IA fica em pausa por DISJUNTOR_PAUSA_MS: a página recebe 503 na hora, sem chamada nenhuma,
- * e oferece as perguntas prontas. Passada a pausa, a próxima pergunta testa de novo — e se ela
+ * e com `pausa_ate` o "Tentar de novo" dela espera até lá. Passada a pausa, a próxima pergunta testa de novo — e se ela
  * falhar, a pausa volta sem esperar outras três.
  */
 function contabilizar(dia, env, { registro = [], reserva = null, falhou = null }) {
@@ -423,8 +423,8 @@ const PRAZO_CORPO_MS = 30000;
 const ATRASO_RESERVA_PADRAO = 6000;
 /* FALHA RÁPIDA. O /consulta chegou a insistir por um minuto, em quatro rodadas, para o
    visitante não ter de clicar em "tentar de novo" — e a espera de um minuto virou o problema.
-   Agora são 20 s e duas rodadas; na falha a página oferece na hora as perguntas prontas mais
-   parecidas, que não dependem da IA. Tudo vem do wrangler.toml. */
+   Agora são 20 s e duas rodadas; na falha a página mostra na hora o "Tentar de novo", em
+   destaque. Tudo vem do wrangler.toml. */
 const PRAZO_CONSULTA_PADRAO = 20000;
 const RODADAS_PADRAO = 2;              /* espera de 1,5 s entre elas */
 const ESPERA_RODADA_PADRAO = 1500;
